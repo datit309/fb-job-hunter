@@ -1,0 +1,19 @@
+{
+  "name": "fb-job-hunter",
+  "version": "1.0.0",
+  "description": "Chrome Extension for automated Facebook Freelance job scanning, filtering, and smart commenting",
+  "main": "content/content.js",
+  "type": "module",
+  "scripts": {
+    "test": "node --test tests/*.test.js"
+  },
+  "keywords": [
+    "facebook",
+    "freelance",
+    "auto-comment",
+    "chrome-extension",
+    "job-hunter"
+  ],
+  "author": "",
+  "license": "MIT"
+}
