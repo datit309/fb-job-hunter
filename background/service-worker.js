@@ -5,8 +5,8 @@
 
 const DEFAULT_CONFIG = {
   enabled: true,
-  autoScroll: false,
-  scanIntervalMs: 5000,
+  autoScroll: true,
+  scanIntervalMs: 4000,
   minCommentDelaySec: 60,
   maxCommentDelaySec: 180,
   dailyCommentLimit: 30,

@@ -1,11 +1,11 @@
 /**
  * Content Script Orchestrator for FB Job Hunter
  * Runs inside facebook.com/groups/*
- * Scans feed, evaluates matching posts, invokes AI or Spintax, and automates safe commenting.
+ * Realtime post listener via MutationObserver, auto humanized scrolling & smart comment dispatching.
  */
 
 (async () => {
-  console.log('[FB Job Hunter] Extension Content Script loaded on Facebook.');
+  console.log('[FB Job Hunter] Realtime Content Script loaded on Facebook.');
 
   // Dynamically import modules via extension runtime URLs
   const { scanFeed } = await import(chrome.runtime.getURL('content/dom-scanner.js'));
@@ -17,6 +17,8 @@
 
   // Load configuration
   let config = (await chrome.storage.local.get('config'))?.config || {};
+  if (config.autoScroll === undefined) config.autoScroll = true; // Auto listen enabled by default
+
   const safety = new SafetyController({
     dailyLimit: config.dailyCommentLimit || 30,
     minDelaySec: config.minCommentDelaySec || 60,
@@ -34,7 +36,7 @@
     onToggle: (newState) => {
       config.enabled = newState;
       chrome.storage.local.set({ config: { ...config, enabled: newState } });
-      updateWidgetStatus(newState ? 'ĐANG CHẠY' : 'TẠM DỪNG', newState ? 'active' : 'idle');
+      updateWidgetStatus(newState ? 'ĐANG LẮNG NGHE' : 'TẠM DỪNG', newState ? 'active' : 'idle');
     }
   });
 
@@ -45,11 +47,29 @@
       safety.dailyLimit = config.dailyCommentLimit || 30;
       safety.minDelaySec = config.minCommentDelaySec || 60;
       safety.maxDelaySec = config.maxCommentDelaySec || 180;
-      updateWidgetStatus(config.enabled ? 'ĐANG CHẠY' : 'TẠM DỪNG', config.enabled ? 'active' : 'idle');
+      updateWidgetStatus(config.enabled ? 'ĐANG LẮNG NGHE' : 'TẠM DỪNG', config.enabled ? 'active' : 'idle');
     }
   });
 
   let isProcessing = false;
+  let scrollStepCount = 0;
+
+  /**
+   * Automatically check and click Facebook's "New Posts" / "Có bài viết mới" pill button
+   */
+  function checkAndClickNewPostsPill() {
+    const candidateButtons = document.querySelectorAll('div[role="button"], span');
+    for (const el of candidateButtons) {
+      const text = el.textContent?.toLowerCase() || '';
+      if (text.includes('bài viết mới') || text.includes('new posts') || text.includes('bài mới')) {
+        const clickable = el.closest('div[role="button"]') || el;
+        clickable.click();
+        console.log('[FB Job Hunter] Đã click nút tải bài viết mới của Facebook');
+        return true;
+      }
+    }
+    return false;
+  }
 
   // Main Scanning & Commenting Loop
   async function runScanCycle() {
@@ -62,36 +82,36 @@
     }
 
     isProcessing = true;
-    updateWidgetStatus('ĐANG QUÉT BÀI...', 'scanning');
+    updateWidgetStatus('ĐANG LẮNG NGHE BÀI...', 'scanning');
 
     try {
+      // 1. Check if Facebook has a "New Posts" banner at the top
+      checkAndClickNewPostsPill();
+
       const posts = scanFeed(document);
 
       for (const post of posts) {
         if (!config.enabled) break;
 
-        // 1. Evaluate filter rules
+        // Evaluate filter rules
         const evalResult = evaluatePost(post.postText, config);
         if (!evalResult.matched) continue;
 
-        // 2. Check safety / duplicate / cooldown
+        // Check safety / duplicate / cooldown
         const safetyCheck = safety.canComment(post.id);
-        if (!safetyCheck.allowed) {
-          // If already commented or cooldown, log if not logged
-          continue;
-        }
+        if (!safetyCheck.allowed) continue;
 
-        // 3. Generate Comment text (AI or Spintax)
+        // Generate Comment text (AI or Spintax)
         updateWidgetStatus(`PHÁT HIỆN: ${post.authorName}`, 'active');
         const pitchResult = await generateAIPitch(post.postText, config);
         const commentText = pitchResult.comment;
 
-        // 4. Post comment
+        // Post comment
         try {
           updateWidgetStatus(`ĐANG COMMENT: ${post.authorName}`, 'active');
           await postCommentOnFacebook(post.element, commentText);
 
-          // 5. Record comment
+          // Record comment
           safety.recordComment(post.id, commentText, post.postUrl);
 
           // Save to persistent storage
@@ -130,12 +150,22 @@
         }
       }
 
-      // Auto scroll if enabled
+      // Smart Autonomous Scrolling:
+      // Tự động cuộn theo nhịp tự nhiên để Facebook load bài mới.
+      // Sau 15-20 lần cuộn (~ 1-2 phút), tự động cuộn lên đầu để kiểm tra bài vừa mới đăng!
       if (config.autoScroll) {
-        window.scrollBy({ top: 400, behavior: 'smooth' });
+        scrollStepCount++;
+        if (scrollStepCount > 15) {
+          window.scrollTo({ top: 0, behavior: 'smooth' });
+          scrollStepCount = 0;
+          setTimeout(checkAndClickNewPostsPill, 1500);
+        } else {
+          const randomScroll = 300 + Math.floor(Math.random() * 200);
+          window.scrollBy({ top: randomScroll, behavior: 'smooth' });
+        }
       }
 
-      updateWidgetStatus(config.enabled ? 'ĐANG CHẠY' : 'TẠM DỪNG', config.enabled ? 'active' : 'idle');
+      updateWidgetStatus(config.enabled ? 'ĐANG LẮNG NGHE' : 'TẠM DỪNG', config.enabled ? 'active' : 'idle');
     } catch (err) {
       console.error('[FB Job Hunter] Lỗi chu kỳ quét:', err);
     } finally {
@@ -143,10 +173,41 @@
     }
   }
 
-  // Periodic scan timer
-  const intervalMs = config.scanIntervalMs || 5000;
+  // Realtime DOM Mutation Observer:
+  // Lắng nghe ngay khi Facebook render thêm bài viết mới vào feed
+  let debounceTimeout = null;
+  const feedObserver = new MutationObserver((mutations) => {
+    if (!config.enabled || isProcessing) return;
+
+    let hasNewArticle = false;
+    for (const m of mutations) {
+      if (m.addedNodes.length > 0) {
+        for (const node of m.addedNodes) {
+          if (node.nodeType === 1) { // ELEMENT_NODE
+            if (node.matches?.('div[role="article"]') || node.querySelector?.('div[role="article"]')) {
+              hasNewArticle = true;
+              break;
+            }
+          }
+        }
+      }
+      if (hasNewArticle) break;
+    }
+
+    if (hasNewArticle) {
+      clearTimeout(debounceTimeout);
+      debounceTimeout = setTimeout(() => {
+        runScanCycle();
+      }, 1000); // 1s debounce to let FB render content
+    }
+  });
+
+  feedObserver.observe(document.body, { childList: true, subtree: true });
+
+  // Fallback periodic scan timer (mỗi 4-5s)
+  const intervalMs = config.scanIntervalMs || 4000;
   setInterval(runScanCycle, intervalMs);
 
-  // Run initial cycle after 2 seconds
+  // Initial trigger
   setTimeout(runScanCycle, 2000);
 })();
