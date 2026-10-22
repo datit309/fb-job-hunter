@@ -17,6 +17,7 @@ document.addEventListener('DOMContentLoaded', async () => {
   const whitelistInput = document.getElementById('whitelist-input');
   const blacklistInput = document.getElementById('blacklist-input');
 
+  const companyModeToggle = document.getElementById('company-mode-toggle');
   const spintaxInput = document.getElementById('spintax-input');
   const btnTestSpintax = document.getElementById('btn-test-spintax');
   const spintaxPreview = document.getElementById('spintax-preview');
@@ -78,6 +79,7 @@ document.addEventListener('DOMContentLoaded', async () => {
     whitelistInput.value = (cfg.whitelistKeywords || []).join(', ');
     blacklistInput.value = (cfg.blacklistKeywords || []).join(', ');
 
+    companyModeToggle.checked = cfg.isCompanyPage !== false;
     spintaxInput.value = (cfg.spintaxTemplates || []).join('\n');
 
     aiEnabledToggle.checked = Boolean(cfg.aiConfig?.enabled);
@@ -189,6 +191,7 @@ document.addEventListener('DOMContentLoaded', async () => {
       scanIntervalMs: Number(scanInterval.value) || 5000,
       whitelistKeywords: formatKeywordsInput(whitelistInput.value),
       blacklistKeywords: formatKeywordsInput(blacklistInput.value),
+      isCompanyPage: companyModeToggle.checked,
       spintaxTemplates: spintaxInput.value.split('\n').map((s) => s.trim()).filter((s) => s.length > 0),
       aiConfig: {
         enabled: aiEnabledToggle.checked,

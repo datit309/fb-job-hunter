@@ -117,11 +117,22 @@
       <section id="tab-spintax" class="tab-pane">
         <div class="card">
           <div class="card-header">
-            <h3>Mẫu Comment Spintax</h3>
+            <h3>🏢 Chế độ Page Doanh nghiệp</h3>
+            <label class="switch-small">
+              <input type="checkbox" id="company-mode-toggle" checked>
+              <span class="slider round"></span>
+            </label>
+          </div>
+          <p class="field-desc">Xưng hô "Bên mình / Team em", văn phong kỹ thuật lịch sự, <strong>tuyệt đối không dùng từ cấm (check ib, check inbox, link, sđt)</strong> để chống Facebook quét ẩn cmt.</p>
+        </div>
+
+        <div class="card">
+          <div class="card-header">
+            <h3>Mẫu Comment Spintax Doanh Nghiệp</h3>
             <span class="tooltip">Chống trùng lặp</span>
           </div>
-          <p class="field-desc">Mỗi dòng là một mẫu Spintax dạng <code>{Chào bạn|Hi bạn} ...</code>:</p>
-          <textarea id="spintax-input" class="form-textarea" rows="5" placeholder="{Chào bạn|Hi bạn}, mình chuyên nhận làm web/app/tool. Check inbox mình trao đổi nhé!"></textarea>
+          <p class="field-desc">Mỗi dòng là một mẫu Spintax dạng <code>{Chào bạn|Dạ chào anh/chị} ...</code>:</p>
+          <textarea id="spintax-input" class="form-textarea" rows="5" placeholder="{Chào bạn|Dạ chào anh/chị}, bài toán này bên mình có kinh nghiệm triển khai tương tự..."></textarea>
           
           <div class="spintax-tester">
             <button id="btn-test-spintax" class="btn btn-secondary">🎲 Thử tạo 1 câu mẫu</button>

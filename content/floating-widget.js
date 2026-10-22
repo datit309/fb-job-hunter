@@ -31,6 +31,7 @@ export function initFloatingWidget(options = {}) {
         <span class="fb-jh-dot"></span>
         <span class="fb-jh-label" id="fb-jh-status-text">${options.enabled ? 'ĐANG CHẠY' : 'TẠM DỪNG'}</span>
       </div>
+      <span class="fb-jh-identity" id="fb-jh-identity" title="Tư cách đang bình luận">🏢 Page</span>
       <div class="fb-jh-controls">
         <button id="fb-jh-toggle-btn" class="fb-jh-btn" title="Bật/Tắt tự động">
           ${options.enabled ? '⏸️' : '▶️'}
@@ -89,6 +90,19 @@ export function updateWidgetStatus(text, state = 'active') {
   if (statusLabel) statusLabel.textContent = text;
   if (indicator) {
     indicator.className = `fb-jh-indicator ${state}`;
+  }
+}
+
+export function updateWidgetIdentity(name) {
+  if (!shadowRoot) return;
+  const identityEl = shadowRoot.getElementById('fb-jh-identity');
+  if (identityEl) {
+    if (name) {
+      identityEl.textContent = `🏢 ${name.slice(0, 15)}`;
+      identityEl.title = `Đang bình luận dưới tên: ${name}`;
+    } else {
+      identityEl.textContent = '🏢 Page Mode';
+    }
   }
 }
 
@@ -215,6 +229,19 @@ function getWidgetStyles() {
     @keyframes pulse {
       from { transform: scale(0.9); opacity: 0.6; }
       to { transform: scale(1.2); opacity: 1; }
+    }
+    .fb-jh-identity {
+      font-size: 10px;
+      font-weight: 600;
+      color: #38bdf8;
+      background: rgba(56, 189, 248, 0.15);
+      border: 1px solid rgba(56, 189, 248, 0.3);
+      border-radius: 12px;
+      padding: 2px 7px;
+      max-width: 120px;
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
     }
     .fb-jh-controls {
       display: flex;

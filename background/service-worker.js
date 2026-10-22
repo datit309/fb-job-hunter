@@ -40,10 +40,12 @@ const DEFAULT_CONFIG = {
     'tuyển mẫu',
     'cho thuê'
   ],
+  isCompanyPage: true,
   spintaxTemplates: [
-    '{Chào bạn|Hi bạn|Hello fen}, {mình|bên mình|team mình} chuyên nhận làm {web, app, tool tự động|phần mềm và bot} theo yêu cầu. Bạn check inbox mình trao đổi chi tiết nhé!',
-    '{Chào bạn|Hello bạn}, mình có kinh nghiệm làm các dự án tương tự. Bạn check ib mình gửi portfolio và tư vấn giải pháp nha.',
-    '{Hi bạn|Chào bạn}, mình nhận làm dự án này nhé. Mình đã nhắn tin riêng qua inbox cho bạn rồi ạ!'
+    '{Dạ chào bạn|Chào bạn|Chào anh/chị}, bài toán {này|kỹ thuật này|dự án này} team bên em đã từng triển khai sản phẩm thực tế tương tự. Nếu bạn cần tham khảo thêm về giải pháp kiến trúc hoặc demo, có thể ghé qua Page bên em nhé ạ.',
+    '{Chào bạn|Dạ chào anh/chị}, bên mình là đơn vị chuyên phát triển {hệ thống phần mềm|web app|ứng dụng di động và tool tự động} theo yêu cầu. Rất mong có cơ hội được hỗ trợ và đồng hành cùng dự án của bạn.',
+    '{Chào bạn|Hi bạn}, mảng {này|công nghệ này} bên mình có sẵn đội ngũ kỹ thuật có thể tư vấn giải pháp tối ưu và triển khai nhanh chóng. Bạn cần thêm thông tin cứ kết nối với page bên mình nha.',
+    '{Dạ chào bạn|Chào anh/chị}, bên em chuyên nhận gia công và phát triển phần mềm chuẩn tiến độ, có thể hỗ trợ tư vấn kỹ thuật chi tiết. Chúc dự án của bạn sớm tìm được team ưng ý nhé ạ!'
   ],
   aiEnabled: false,
   aiProvider: 'deepseek',

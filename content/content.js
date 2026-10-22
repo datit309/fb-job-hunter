@@ -13,7 +13,7 @@
   const { generateAIPitch } = await import(chrome.runtime.getURL('lib/ai-matcher.js'));
   const { SafetyController } = await import(chrome.runtime.getURL('content/safety.js'));
   const { postCommentOnFacebook } = await import(chrome.runtime.getURL('content/commenter.js'));
-  const { initFloatingWidget, updateWidgetStatus, addWidgetJobLog } = await import(chrome.runtime.getURL('content/floating-widget.js'));
+  const { initFloatingWidget, updateWidgetStatus, addWidgetJobLog, updateWidgetIdentity } = await import(chrome.runtime.getURL('content/floating-widget.js'));
 
   // Load configuration
   let config = (await chrome.storage.local.get('config'))?.config || {};
@@ -71,6 +71,18 @@
     return false;
   }
 
+  function detectActiveIdentity() {
+    const switchers = document.querySelectorAll('[aria-label*="Tương tác dưới tên"], [aria-label*="Bình luận dưới tên"], [aria-label*="Interacting as"], [aria-label*="Comment as"]');
+    for (const el of switchers) {
+      const label = el.getAttribute('aria-label') || '';
+      const match = label.match(/(?:dưới tên|as)\s+([^.,;]+)/i);
+      if (match && match[1]) {
+        return match[1].trim();
+      }
+    }
+    return null;
+  }
+
   // Main Scanning & Commenting Loop
   async function runScanCycle() {
     if (!config.enabled || isProcessing) return;
@@ -85,6 +97,12 @@
     updateWidgetStatus('ĐANG LẮNG NGHE BÀI...', 'scanning');
 
     try {
+      // Check current commenting identity (Page vs User)
+      const currentIdentity = detectActiveIdentity();
+      if (currentIdentity) {
+        updateWidgetIdentity(currentIdentity);
+      }
+
       // 1. Check if Facebook has a "New Posts" banner at the top
       checkAndClickNewPostsPill();
 
