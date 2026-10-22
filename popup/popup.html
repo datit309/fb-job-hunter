@@ -1,0 +1,236 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>FB Job Hunter</title>
+  <link rel="stylesheet" href="popup.css">
+</head>
+<body>
+  <div class="app-container">
+    <!-- Header -->
+    <header class="app-header">
+      <div class="header-branding">
+        <div class="logo-badge">🎯</div>
+        <div class="title-group">
+          <h1>FB Job Hunter</h1>
+          <span class="version-tag">v1.0 PRO</span>
+        </div>
+      </div>
+      <div class="header-action">
+        <label class="switch" title="Bật/Tắt chế độ tự động">
+          <input type="checkbox" id="master-toggle" checked>
+          <span class="slider round"></span>
+        </label>
+      </div>
+    </header>
+
+    <!-- Status Banner -->
+    <div class="status-banner" id="status-banner">
+      <div class="status-indicator">
+        <span class="pulse-dot"></span>
+        <span class="status-text" id="status-text">Đang sẵn sàng quét</span>
+      </div>
+      <div class="status-stats">
+        <div class="stat-item">
+          <span class="stat-value" id="stat-scanned">0</span>
+          <span class="stat-label">Đã quét</span>
+        </div>
+        <div class="stat-item">
+          <span class="stat-value highlight" id="stat-matched">0</span>
+          <span class="stat-label">Khớp job</span>
+        </div>
+        <div class="stat-item">
+          <span class="stat-value success" id="stat-commented">0/30</span>
+          <span class="stat-label">Đã comment</span>
+        </div>
+      </div>
+    </div>
+
+    <!-- Navigation Tabs -->
+    <nav class="nav-tabs">
+      <button class="tab-btn active" data-tab="tab-overview">⚡ Tổng quan</button>
+      <button class="tab-btn" data-tab="tab-keywords">🔍 Từ khóa</button>
+      <button class="tab-btn" data-tab="tab-spintax">💬 Mẫu cmt</button>
+      <button class="tab-btn" data-tab="tab-ai">🤖 AI Pitch</button>
+      <button class="tab-btn" data-tab="tab-safety">🛡️ An toàn</button>
+      <button class="tab-btn" data-tab="tab-history">📜 Lịch sử</button>
+    </nav>
+
+    <!-- Tab Contents -->
+    <main class="tab-content-area">
+      <!-- Tab 1: Overview -->
+      <section id="tab-overview" class="tab-pane active">
+        <div class="card">
+          <div class="card-header">
+            <h3>Điều khiển trực tiếp</h3>
+          </div>
+          <div class="control-row">
+            <label class="checkbox-label">
+              <input type="checkbox" id="auto-scroll-toggle">
+              <span>Tự động cuộn trang (Auto-scroll tìm bài mới)</span>
+            </label>
+          </div>
+          <div class="control-row">
+            <span class="label-desc">Tần suất quét DOM:</span>
+            <select id="scan-interval" class="form-select">
+              <option value="3000">3 giây (Nhanh)</option>
+              <option value="5000" selected>5 giây (Khuyên dùng)</option>
+              <option value="10000">10 giây (Tiết kiệm)</option>
+            </select>
+          </div>
+        </div>
+
+        <div class="card">
+          <div class="card-header">
+            <h3>Hoạt động gần nhất</h3>
+            <span class="badge" id="recent-count">0 bài</span>
+          </div>
+          <div class="recent-list" id="recent-list">
+            <div class="empty-state">Chưa có bài đăng nào được ghi nhận. Hãy mở tab Facebook Group để tool bắt đầu quét!</div>
+          </div>
+        </div>
+      </section>
+
+      <!-- Tab 2: Keywords -->
+      <section id="tab-keywords" class="tab-pane">
+        <div class="card">
+          <div class="card-header">
+            <h3>Từ khóa BẮT BUỘC (Whitelist)</h3>
+            <span class="tooltip">Khớp ít nhất 1 từ</span>
+          </div>
+          <p class="field-desc">Nhập các từ khóa phân cách bằng dấu phẩy hoặc xuống dòng (hỗ trợ cả có dấu & không dấu):</p>
+          <textarea id="whitelist-input" class="form-textarea" rows="4" placeholder="tìm dev, cần dev, outsource, freelance, làm web, làm app, python, react..."></textarea>
+        </div>
+
+        <div class="card">
+          <div class="card-header">
+            <h3>Từ khóa LOẠI TRỪ (Blacklist)</h3>
+            <span class="tooltip alert">Bỏ qua ngay lập tức</span>
+          </div>
+          <p class="field-desc">Nếu bài viết chứa bất kỳ từ nào dưới đây sẽ bị bỏ qua (tránh tuyển dụng fulltime, sale, khóa học):</p>
+          <textarea id="blacklist-input" class="form-textarea alert" rows="4" placeholder="tuyển sinh, khóa học, bán acc, tuyển dụng sale, fulltime tại, onsite, đa cấp..."></textarea>
+        </div>
+      </section>
+
+      <!-- Tab 3: Spintax -->
+      <section id="tab-spintax" class="tab-pane">
+        <div class="card">
+          <div class="card-header">
+            <h3>Mẫu Comment Spintax</h3>
+            <span class="tooltip">Chống trùng lặp</span>
+          </div>
+          <p class="field-desc">Mỗi dòng là một mẫu Spintax dạng <code>{Chào bạn|Hi bạn} ...</code>:</p>
+          <textarea id="spintax-input" class="form-textarea" rows="5" placeholder="{Chào bạn|Hi bạn}, mình chuyên nhận làm web/app/tool. Check inbox mình trao đổi nhé!"></textarea>
+          
+          <div class="spintax-tester">
+            <button id="btn-test-spintax" class="btn btn-secondary">🎲 Thử tạo 1 câu mẫu</button>
+            <div class="test-preview" id="spintax-preview">Bấm nút trên để kiểm tra kết quả xoay chữ ngẫu nhiên</div>
+          </div>
+        </div>
+      </section>
+
+      <!-- Tab 4: AI Setup -->
+      <section id="tab-ai" class="tab-pane">
+        <div class="card">
+          <div class="card-header">
+            <h3>Kích hoạt AI Smart Pitch</h3>
+            <label class="switch-small">
+              <input type="checkbox" id="ai-enabled-toggle">
+              <span class="slider round"></span>
+            </label>
+          </div>
+          <p class="field-desc">AI sẽ đọc nội dung bài đăng của khách để tự động viết câu bình luận may đo theo đúng techstack.</p>
+
+          <div class="form-group">
+            <label>Nhà cung cấp AI:</label>
+            <select id="ai-provider" class="form-select">
+              <option value="deepseek" selected>DeepSeek (deepseek-chat - Rẻ & Thông minh)</option>
+              <option value="openai">OpenAI (gpt-4o-mini)</option>
+              <option value="gemini">Google Gemini (gemini-1.5-flash)</option>
+            </select>
+          </div>
+
+          <div class="form-group">
+            <label>API Key:</label>
+            <div class="password-input-wrapper">
+              <input type="password" id="ai-api-key" class="form-input" placeholder="sk-...">
+              <button type="button" id="toggle-key-visibility" class="btn-icon">👁️</button>
+            </div>
+            <span class="field-hint">Key chỉ lưu trực tiếp trong trình duyệt máy bạn (chrome.storage.local).</span>
+          </div>
+
+          <div class="form-group">
+            <label>Chỉ dẫn thêm cho AI (Custom Prompt):</label>
+            <textarea id="ai-custom-prompt" class="form-textarea" rows="3" placeholder="Ví dụ: Nhấn mạnh kinh nghiệm 5 năm làm Web/App và cam kết hoàn thành đúng hạn..."></textarea>
+          </div>
+        </div>
+      </section>
+
+      <!-- Tab 5: Safety -->
+      <section id="tab-safety" class="tab-pane">
+        <div class="card">
+          <div class="card-header">
+            <h3>Chống Checkpoint & Quét Spam</h3>
+          </div>
+          <div class="form-group">
+            <label>Thời gian nghỉ ngẫu nhiên giữa 2 lần comment:</label>
+            <div class="range-inputs">
+              <div class="input-with-unit">
+                <input type="number" id="min-delay" class="form-input" min="30" max="300" value="60">
+                <span class="unit">giây (Min)</span>
+              </div>
+              <span class="separator">-</span>
+              <div class="input-with-unit">
+                <input type="number" id="max-delay" class="form-input" min="60" max="600" value="180">
+                <span class="unit">giây (Max)</span>
+              </div>
+            </div>
+            <span class="field-hint">Khuyên dùng: 60s - 180s để Facebook không nhận diện là bot.</span>
+          </div>
+
+          <div class="form-group">
+            <label>Giới hạn tối đa số comment / ngày:</label>
+            <input type="number" id="daily-limit" class="form-input" min="5" max="100" value="30">
+            <span class="field-hint">Nên để từ 20 - 40 comment/ngày cho tài khoản cá nhân.</span>
+          </div>
+        </div>
+
+        <div class="card">
+          <div class="card-header">
+            <h3>Thông báo Telegram Webhook</h3>
+          </div>
+          <p class="field-desc">Nhận thông báo bài đăng và comment trực tiếp về Telegram cá nhân:</p>
+          <div class="form-group">
+            <label>Bot Token:</label>
+            <input type="text" id="tg-token" class="form-input" placeholder="123456789:ABCdefGhIjk...">
+          </div>
+          <div class="form-group">
+            <label>Chat ID:</label>
+            <input type="text" id="tg-chat-id" class="form-input" placeholder="123456789 hoặc @username">
+          </div>
+        </div>
+      </section>
+
+      <!-- Tab 6: History -->
+      <section id="tab-history" class="tab-pane">
+        <div class="history-header">
+          <span>Danh sách bài đã phát hiện & ứng tuyển</span>
+          <button id="btn-clear-history" class="btn btn-danger-outline btn-sm">Xóa lịch sử</button>
+        </div>
+        <div class="history-list" id="history-container">
+          <div class="empty-state">Chưa có lịch sử ứng tuyển nào.</div>
+        </div>
+      </section>
+    </main>
+
+    <!-- Footer Controls -->
+    <footer class="app-footer">
+      <div id="save-toast" class="save-toast">Đã lưu cấu hình thành công!</div>
+      <button id="btn-save-config" class="btn btn-primary btn-block">💾 Lưu tất cả cấu hình</button>
+    </footer>
+  </div>
+
+  <script type="module" src="popup.js"></script>
+</body>
+</html>
