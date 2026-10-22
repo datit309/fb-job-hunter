@@ -1,0 +1,59 @@
+{
+  "manifest_version": 3,
+  "name": "FB Job Hunter — Auto Comment & Nhận Job Freelance",
+  "version": "1.0.0",
+  "description": "Tự động chọn lọc bài đăng tìm dev trong group Facebook và auto comment thông minh với Spintax và AI",
+  "permissions": [
+    "storage",
+    "alarms",
+    "notifications"
+  ],
+  "host_permissions": [
+    "*://*.facebook.com/*",
+    "https://api.telegram.org/*",
+    "https://api.deepseek.com/*",
+    "https://api.openai.com/*",
+    "https://generativelanguage.googleapis.com/*"
+  ],
+  "action": {
+    "default_popup": "popup/popup.html",
+    "default_title": "FB Job Hunter Dashboard",
+    "default_icon": {
+      "16": "icons/icon16.png",
+      "32": "icons/icon32.png",
+      "48": "icons/icon48.png",
+      "128": "icons/icon128.png"
+    }
+  },
+  "background": {
+    "service_worker": "background/service-worker.js",
+    "type": "module"
+  },
+  "content_scripts": [
+    {
+      "matches": [
+        "*://*.facebook.com/groups/*",
+        "*://*.facebook.com/*"
+      ],
+      "js": [
+        "content/content.js"
+      ],
+      "css": [
+        "content/floating-widget.css"
+      ],
+      "run_at": "document_idle"
+    }
+  ],
+  "web_accessible_resources": [
+    {
+      "resources": [
+        "icons/*",
+        "lib/*",
+        "content/*"
+      ],
+      "matches": [
+        "*://*.facebook.com/*"
+      ]
+    }
+  ]
+}
