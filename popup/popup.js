@@ -1,7 +1,32 @@
 import { parseSpintax } from '../lib/spintax.js';
 import { formatKeywordsInput, validateConfig } from '../lib/config-helper.js';
 
-document.addEventListener('DOMContentLoaded', async () => {
+// Safe storage access helper
+async function getStoredConfig() {
+  if (typeof chrome !== 'undefined' && chrome.storage?.local) {
+    try {
+      const res = await chrome.storage.local.get('config');
+      return res?.config || {};
+    } catch (e) {
+      console.warn('[Popup] Error reading storage:', e);
+    }
+  }
+  return {};
+}
+
+async function setStoredConfig(data) {
+  if (typeof chrome !== 'undefined' && chrome.storage?.local) {
+    try {
+      await chrome.storage.local.set(data);
+      return true;
+    } catch (e) {
+      console.warn('[Popup] Error writing storage:', e);
+    }
+  }
+  return false;
+}
+
+async function initPopup() {
   // Elements
   const masterToggle = document.getElementById('master-toggle');
   const statusText = document.getElementById('status-text');
@@ -40,64 +65,85 @@ document.addEventListener('DOMContentLoaded', async () => {
   const btnSaveConfig = document.getElementById('btn-save-config');
   const saveToast = document.getElementById('save-toast');
 
-  // Tab switching
+  // Tab switching logic (Active immediately)
   const tabButtons = document.querySelectorAll('.tab-btn');
   const tabPanes = document.querySelectorAll('.tab-pane');
 
-  tabButtons.forEach((btn) => {
-    btn.addEventListener('click', () => {
-      tabButtons.forEach((b) => b.classList.remove('active'));
-      tabPanes.forEach((p) => p.classList.remove('active'));
+  function switchTab(targetId) {
+    if (!targetId) return;
+    tabButtons.forEach((b) => {
+      if (b.dataset.tab === targetId) {
+        b.classList.add('active');
+      } else {
+        b.classList.remove('active');
+      }
+    });
 
-      btn.classList.add('active');
-      const targetPane = document.getElementById(btn.dataset.tab);
-      if (targetPane) targetPane.classList.add('active');
+    tabPanes.forEach((p) => {
+      if (p.id === targetId) {
+        p.classList.add('active');
+      } else {
+        p.classList.remove('active');
+      }
+    });
+  }
+
+  tabButtons.forEach((btn) => {
+    btn.addEventListener('click', (e) => {
+      e.preventDefault();
+      const targetTab = btn.getAttribute('data-tab');
+      switchTab(targetTab);
     });
   });
 
   // Toggle API key visibility
-  toggleKeyVisibility.addEventListener('click', () => {
-    if (aiApiKey.type === 'password') {
-      aiApiKey.type = 'text';
-      toggleKeyVisibility.textContent = '🙈';
-    } else {
-      aiApiKey.type = 'password';
-      toggleKeyVisibility.textContent = '👁️';
+  if (toggleKeyVisibility && aiApiKey) {
+    toggleKeyVisibility.addEventListener('click', () => {
+      if (aiApiKey.type === 'password') {
+        aiApiKey.type = 'text';
+        toggleKeyVisibility.textContent = '🙈';
+      } else {
+        aiApiKey.type = 'password';
+        toggleKeyVisibility.textContent = '👁️';
+      }
+    });
+  }
+
+  // Load configuration safely
+  let stored = await getStoredConfig();
+
+  function populateUI(cfg = {}) {
+    if (masterToggle) {
+      masterToggle.checked = Boolean(cfg.enabled);
+      updateMasterStatusBadge(cfg.enabled);
     }
-  });
 
-  // Load configuration
-  let stored = (await chrome.storage.local.get('config'))?.config || {};
+    if (autoScrollToggle) autoScrollToggle.checked = Boolean(cfg.autoScroll);
+    if (scanInterval) scanInterval.value = String(cfg.scanIntervalMs || 5000);
 
-  function populateUI(cfg) {
-    masterToggle.checked = Boolean(cfg.enabled);
-    updateMasterStatusBadge(cfg.enabled);
+    if (whitelistInput) whitelistInput.value = (cfg.whitelistKeywords || []).join(', ');
+    if (blacklistInput) blacklistInput.value = (cfg.blacklistKeywords || []).join(', ');
 
-    autoScrollToggle.checked = Boolean(cfg.autoScroll);
-    scanInterval.value = String(cfg.scanIntervalMs || 5000);
+    if (companyModeToggle) companyModeToggle.checked = cfg.isCompanyPage !== false;
+    if (spintaxInput) spintaxInput.value = (cfg.spintaxTemplates || []).join('\n');
 
-    whitelistInput.value = (cfg.whitelistKeywords || []).join(', ');
-    blacklistInput.value = (cfg.blacklistKeywords || []).join(', ');
+    if (aiEnabledToggle) aiEnabledToggle.checked = Boolean(cfg.aiConfig?.enabled);
+    if (aiProvider) aiProvider.value = cfg.aiConfig?.provider || 'deepseek';
+    if (aiApiKey) aiApiKey.value = cfg.aiConfig?.apiKey || '';
+    if (aiCustomPrompt) aiCustomPrompt.value = cfg.aiConfig?.customPrompt || '';
 
-    companyModeToggle.checked = cfg.isCompanyPage !== false;
-    spintaxInput.value = (cfg.spintaxTemplates || []).join('\n');
+    if (minDelayInput) minDelayInput.value = cfg.minCommentDelaySec || 60;
+    if (maxDelayInput) maxDelayInput.value = cfg.maxCommentDelaySec || 180;
+    if (dailyLimitInput) dailyLimitInput.value = cfg.dailyCommentLimit || 30;
 
-    aiEnabledToggle.checked = Boolean(cfg.aiConfig?.enabled);
-    aiProvider.value = cfg.aiConfig?.provider || 'deepseek';
-    aiApiKey.value = cfg.aiConfig?.apiKey || '';
-    aiCustomPrompt.value = cfg.aiConfig?.customPrompt || '';
-
-    minDelayInput.value = cfg.minCommentDelaySec || 60;
-    maxDelayInput.value = cfg.maxCommentDelaySec || 180;
-    dailyLimitInput.value = cfg.dailyCommentLimit || 30;
-
-    tgTokenInput.value = cfg.telegramConfig?.botToken || '';
-    tgChatIdInput.value = cfg.telegramConfig?.chatId || '';
+    if (tgTokenInput) tgTokenInput.value = cfg.telegramConfig?.botToken || '';
+    if (tgChatIdInput) tgChatIdInput.value = cfg.telegramConfig?.chatId || '';
 
     renderHistory(cfg.history || []);
   }
 
   function updateMasterStatusBadge(enabled) {
+    if (!statusText) return;
     if (enabled) {
       statusText.textContent = 'Đang chạy (Sẵn sàng quét)';
       statusText.style.color = '#10b981';
@@ -107,37 +153,43 @@ document.addEventListener('DOMContentLoaded', async () => {
     }
   }
 
-  masterToggle.addEventListener('change', async () => {
-    const isEnabled = masterToggle.checked;
-    updateMasterStatusBadge(isEnabled);
-    stored.enabled = isEnabled;
-    await chrome.storage.local.set({ config: stored });
-  });
+  if (masterToggle) {
+    masterToggle.addEventListener('change', async () => {
+      const isEnabled = masterToggle.checked;
+      updateMasterStatusBadge(isEnabled);
+      stored.enabled = isEnabled;
+      await setStoredConfig({ config: stored });
+    });
+  }
 
   // Spintax live test
-  btnTestSpintax.addEventListener('click', () => {
-    const lines = spintaxInput.value.split('\n').filter((l) => l.trim().length > 0);
-    if (lines.length === 0) {
-      spintaxPreview.textContent = 'Vui lòng nhập ít nhất 1 dòng mẫu spintax.';
-      return;
-    }
-    const randomLine = lines[Math.floor(Math.random() * lines.length)];
-    const generated = parseSpintax(randomLine);
-    spintaxPreview.textContent = `"${generated}"`;
-  });
+  if (btnTestSpintax && spintaxInput && spintaxPreview) {
+    btnTestSpintax.addEventListener('click', () => {
+      const lines = spintaxInput.value.split('\n').filter((l) => l.trim().length > 0);
+      if (lines.length === 0) {
+        spintaxPreview.textContent = 'Vui lòng nhập ít nhất 1 dòng mẫu spintax.';
+        return;
+      }
+      const randomLine = lines[Math.floor(Math.random() * lines.length)];
+      const generated = parseSpintax(randomLine);
+      spintaxPreview.textContent = `"${generated}"`;
+    });
+  }
 
   // Render History List
-  function renderHistory(history) {
+  function renderHistory(history = []) {
     const today = new Date().toDateString();
     const todayCount = history.filter((h) => new Date(h.commentedAt).toDateString() === today).length;
     const limit = stored.dailyCommentLimit || 30;
 
-    statScanned.textContent = String(history.length);
-    statMatched.textContent = String(history.length);
-    statCommented.textContent = `${todayCount}/${limit}`;
-    recentCount.textContent = `${Math.min(history.length, 5)} bài`;
+    if (statScanned) statScanned.textContent = String(history.length);
+    if (statMatched) statMatched.textContent = String(history.length);
+    if (statCommented) statCommented.textContent = `${todayCount}/${limit}`;
+    if (recentCount) recentCount.textContent = `${Math.min(history.length, 5)} bài`;
 
-    if (!history || history.length === 0) {
+    if (!historyContainer || !recentList) return;
+
+    if (history.length === 0) {
       historyContainer.innerHTML = '<div class="empty-state">Chưa có lịch sử ứng tuyển nào.</div>';
       recentList.innerHTML = '<div class="empty-state">Chưa có bài đăng nào được ghi nhận.</div>';
       return;
@@ -145,7 +197,7 @@ document.addEventListener('DOMContentLoaded', async () => {
 
     // Build history HTML
     historyContainer.innerHTML = history.map((item) => {
-      const timeStr = new Date(item.commentedAt).toLocaleTimeString('vi-VN', { hour: '2-digit', minute: '2-digit' });
+      const timeStr = new Date(item.commentedAt || Date.now()).toLocaleTimeString('vi-VN', { hour: '2-digit', minute: '2-digit' });
       return `
         <div class="history-item">
           <div class="history-item-top">
@@ -166,7 +218,7 @@ document.addEventListener('DOMContentLoaded', async () => {
       <div class="history-item">
         <div class="history-item-top">
           <span class="history-author">👤 ${escapeHtml(item.authorName || 'Khách')}</span>
-          <span class="history-time">${new Date(item.commentedAt).toLocaleTimeString('vi-VN')}</span>
+          <span class="history-time">${new Date(item.commentedAt || Date.now()).toLocaleTimeString('vi-VN')}</span>
         </div>
         <div class="history-post-preview">${escapeHtml((item.postText || '').slice(0, 100))}...</div>
       </div>
@@ -174,50 +226,56 @@ document.addEventListener('DOMContentLoaded', async () => {
   }
 
   // Clear History
-  btnClearHistory.addEventListener('click', async () => {
-    if (confirm('Bạn có chắc chắn muốn xóa toàn bộ lịch sử quét và comment không?')) {
-      stored.history = [];
-      await chrome.storage.local.set({ config: stored });
-      renderHistory([]);
-    }
-  });
+  if (btnClearHistory) {
+    btnClearHistory.addEventListener('click', async () => {
+      if (confirm('Bạn có chắc chắn muốn xóa toàn bộ lịch sử quét và comment không?')) {
+        stored.history = [];
+        await setStoredConfig({ config: stored });
+        renderHistory([]);
+      }
+    });
+  }
 
   // Save Settings
-  btnSaveConfig.addEventListener('click', async () => {
-    const rawConfig = {
-      ...stored,
-      enabled: masterToggle.checked,
-      autoScroll: autoScrollToggle.checked,
-      scanIntervalMs: Number(scanInterval.value) || 5000,
-      whitelistKeywords: formatKeywordsInput(whitelistInput.value),
-      blacklistKeywords: formatKeywordsInput(blacklistInput.value),
-      isCompanyPage: companyModeToggle.checked,
-      spintaxTemplates: spintaxInput.value.split('\n').map((s) => s.trim()).filter((s) => s.length > 0),
-      aiConfig: {
-        enabled: aiEnabledToggle.checked,
-        provider: aiProvider.value,
-        apiKey: aiApiKey.value.trim(),
-        customPrompt: aiCustomPrompt.value.trim()
-      },
-      minCommentDelaySec: Number(minDelayInput.value),
-      maxCommentDelaySec: Number(maxDelayInput.value),
-      dailyCommentLimit: Number(dailyLimitInput.value),
-      telegramConfig: {
-        botToken: tgTokenInput.value.trim(),
-        chatId: tgChatIdInput.value.trim()
+  if (btnSaveConfig) {
+    btnSaveConfig.addEventListener('click', async () => {
+      const rawConfig = {
+        ...stored,
+        enabled: masterToggle ? masterToggle.checked : true,
+        autoScroll: autoScrollToggle ? autoScrollToggle.checked : true,
+        scanIntervalMs: Number(scanInterval?.value) || 5000,
+        whitelistKeywords: formatKeywordsInput(whitelistInput?.value || ''),
+        blacklistKeywords: formatKeywordsInput(blacklistInput?.value || ''),
+        isCompanyPage: companyModeToggle ? companyModeToggle.checked : true,
+        spintaxTemplates: (spintaxInput?.value || '').split('\n').map((s) => s.trim()).filter((s) => s.length > 0),
+        aiConfig: {
+          enabled: aiEnabledToggle ? aiEnabledToggle.checked : false,
+          provider: aiProvider?.value || 'deepseek',
+          apiKey: (aiApiKey?.value || '').trim(),
+          customPrompt: (aiCustomPrompt?.value || '').trim()
+        },
+        minCommentDelaySec: Number(minDelayInput?.value) || 60,
+        maxCommentDelaySec: Number(maxDelayInput?.value) || 180,
+        dailyCommentLimit: Number(dailyLimitInput?.value) || 30,
+        telegramConfig: {
+          botToken: (tgTokenInput?.value || '').trim(),
+          chatId: (tgChatIdInput?.value || '').trim()
+        }
+      };
+
+      const validated = validateConfig(rawConfig);
+      stored = validated;
+      await setStoredConfig({ config: validated });
+
+      // Show toast
+      if (saveToast) {
+        saveToast.classList.add('visible');
+        setTimeout(() => {
+          saveToast.classList.remove('visible');
+        }, 2000);
       }
-    };
-
-    const validated = validateConfig(rawConfig);
-    stored = validated;
-    await chrome.storage.local.set({ config: validated });
-
-    // Show toast
-    saveToast.classList.add('visible');
-    setTimeout(() => {
-      saveToast.classList.remove('visible');
-    }, 2000);
-  });
+    });
+  }
 
   function escapeHtml(str) {
     if (!str) return '';
@@ -230,4 +288,11 @@ document.addEventListener('DOMContentLoaded', async () => {
   }
 
   populateUI(stored);
-});
+}
+
+// Immediate execution if DOM is already ready, or listen to DOMContentLoaded
+if (document.readyState === 'loading') {
+  document.addEventListener('DOMContentLoaded', initPopup);
+} else {
+  initPopup();
+}

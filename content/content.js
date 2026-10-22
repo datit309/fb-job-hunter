@@ -35,7 +35,9 @@
     enabled: config.enabled,
     onToggle: (newState) => {
       config.enabled = newState;
-      chrome.storage.local.set({ config: { ...config, enabled: newState } });
+      try {
+        chrome.storage?.local?.set({ config: { ...config, enabled: newState } });
+      } catch (e) {}
       updateWidgetStatus(newState ? 'ĐANG LẮNG NGHE' : 'TẠM DỪNG', newState ? 'active' : 'idle');
     }
   });
@@ -149,18 +151,28 @@
           currentHistory.unshift(historyItem);
           if (currentHistory.length > 200) currentHistory.pop(); // Keep max 200 items
 
-          await chrome.storage.local.set({
-            config: { ...config, history: currentHistory }
-          });
+          try {
+            await chrome.storage?.local?.set({
+              config: { ...config, history: currentHistory }
+            });
+          } catch (storageErr) {
+            console.warn('[FB Job Hunter] Storage set warning:', storageErr);
+          }
 
           // Log in floating widget
           addWidgetJobLog(historyItem);
 
           // Notify Background Worker (Telegram alert)
-          chrome.runtime.sendMessage({
-            type: 'NOTIFY_JOB_MATCH',
-            payload: historyItem
-          });
+          try {
+            if (chrome.runtime?.id) {
+              chrome.runtime.sendMessage({
+                type: 'NOTIFY_JOB_MATCH',
+                payload: historyItem
+              }).catch(() => {});
+            }
+          } catch (runtimeErr) {
+            // Service worker or extension context reloaded
+          }
 
           console.log(`[FB Job Hunter] Comment thành công trên bài viết của: ${post.authorName}`);
         } catch (postErr) {
@@ -225,6 +237,29 @@
   // Fallback periodic scan timer (mỗi 4-5s)
   const intervalMs = config.scanIntervalMs || 4000;
   setInterval(runScanCycle, intervalMs);
+
+  // Kích hoạt quét ngay khi người dùng chuyển lại tab Facebook từ tab khác
+  document.addEventListener('visibilitychange', () => {
+    if (!document.hidden && config.enabled) {
+      console.log('[FB Job Hunter] Tab Facebook active trở lại — kích hoạt quét');
+      setTimeout(runScanCycle, 800);
+    }
+  });
+
+  // Tự động nhận diện khi chuyển tab bên trong nhóm Facebook (Discussion, Featured, v.v.)
+  let lastUrl = window.location.href;
+  setInterval(() => {
+    if (window.location.href !== lastUrl) {
+      lastUrl = window.location.href;
+      console.log('[FB Job Hunter] Chuyển tab/trang Facebook:', lastUrl);
+      if (window.location.pathname.includes('/groups/') || window.location.pathname.includes('/feed')) {
+        updateWidgetStatus(config.enabled ? 'ĐANG LẮNG NGHE' : 'TẠM DỪNG', config.enabled ? 'active' : 'idle');
+        setTimeout(runScanCycle, 1500);
+      } else {
+        updateWidgetStatus('VÀO GROUP ĐỂ QUÉT', 'idle');
+      }
+    }
+  }, 1000);
 
   // Initial trigger
   setTimeout(runScanCycle, 2000);
