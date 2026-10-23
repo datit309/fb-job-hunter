@@ -783,3 +783,12 @@ input:checked + .slider:before {
   font-size: 10.5px;
 }
 
+.custom-ai-container {
+  background: rgba(30, 41, 59, 0.4);
+  border: 1px dashed var(--border-color);
+  border-radius: 8px;
+  padding: 10px 12px;
+  margin-bottom: 12px;
+}
+
+

@@ -58,6 +58,9 @@ async function initPopup() {
 
   const aiEnabledToggle = document.getElementById('ai-enabled-toggle');
   const aiProvider = document.getElementById('ai-provider');
+  const customAiGroup = document.getElementById('custom-ai-group');
+  const aiCustomEndpoint = document.getElementById('ai-custom-endpoint');
+  const aiCustomModel = document.getElementById('ai-custom-model');
   const aiApiKey = document.getElementById('ai-api-key');
   const toggleKeyVisibility = document.getElementById('toggle-key-visibility');
   const aiCustomPrompt = document.getElementById('ai-custom-prompt');
@@ -290,6 +293,16 @@ async function initPopup() {
     });
   }
 
+  // Toggle Custom AI fields visibility
+  if (aiProvider) {
+    aiProvider.addEventListener('change', () => {
+      const isCustom = aiProvider.value === 'custom';
+      if (customAiGroup) {
+        customAiGroup.style.display = isCustom ? 'block' : 'none';
+      }
+    });
+  }
+
   // Toggle API key visibility
   if (toggleKeyVisibility && aiApiKey) {
     toggleKeyVisibility.addEventListener('click', () => {
@@ -323,7 +336,14 @@ async function initPopup() {
     if (spintaxInput) spintaxInput.value = (cfg.spintaxTemplates || []).join('\n');
 
     if (aiEnabledToggle) aiEnabledToggle.checked = Boolean(cfg.aiConfig?.enabled);
-    if (aiProvider) aiProvider.value = cfg.aiConfig?.provider || 'deepseek';
+    if (aiProvider) {
+      aiProvider.value = cfg.aiConfig?.provider || 'deepseek';
+      if (customAiGroup) {
+        customAiGroup.style.display = aiProvider.value === 'custom' ? 'block' : 'none';
+      }
+    }
+    if (aiCustomEndpoint) aiCustomEndpoint.value = cfg.aiConfig?.customEndpoint || '';
+    if (aiCustomModel) aiCustomModel.value = cfg.aiConfig?.customModel || '';
     if (aiApiKey) aiApiKey.value = cfg.aiConfig?.apiKey || '';
     if (aiCustomPrompt) aiCustomPrompt.value = cfg.aiConfig?.customPrompt || '';
 
@@ -488,7 +508,9 @@ async function initPopup() {
       const aiCfg = {
         apiKey: (aiApiKey?.value || '').trim(),
         provider: aiProvider?.value || 'deepseek',
-        model: aiProvider?.value === 'deepseek' ? 'deepseek-chat' : 'gpt-4o-mini'
+        customEndpoint: (aiCustomEndpoint?.value || '').trim(),
+        customModel: (aiCustomModel?.value || '').trim(),
+        model: (aiCustomModel?.value || '').trim() || (aiProvider?.value === 'deepseek' ? 'deepseek-chat' : 'gpt-4o-mini')
       };
 
       try {
@@ -598,7 +620,9 @@ async function initPopup() {
       const aiCfg = {
         apiKey: (aiApiKey?.value || '').trim(),
         provider: aiProvider?.value || 'deepseek',
-        model: aiProvider?.value === 'deepseek' ? 'deepseek-chat' : 'gpt-4o-mini'
+        customEndpoint: (aiCustomEndpoint?.value || '').trim(),
+        customModel: (aiCustomModel?.value || '').trim(),
+        model: (aiCustomModel?.value || '').trim() || (aiProvider?.value === 'deepseek' ? 'deepseek-chat' : 'gpt-4o-mini')
       };
 
       try {
@@ -755,6 +779,8 @@ async function initPopup() {
           enabled: aiEnabledToggle ? aiEnabledToggle.checked : false,
           provider: aiProvider?.value || 'deepseek',
           apiKey: (aiApiKey?.value || '').trim(),
+          customEndpoint: (aiCustomEndpoint?.value || '').trim(),
+          customModel: (aiCustomModel?.value || '').trim(),
           customPrompt: (aiCustomPrompt?.value || '').trim()
         },
         minCommentDelaySec: Number(minDelayInput?.value) || 60,

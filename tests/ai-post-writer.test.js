@@ -99,6 +99,41 @@ describe('AI Promotional Post Copywriter', () => {
       assert.ok(result.content.length > 50);
       assert.ok(result.warning.includes('Authentication failed'));
     });
+
+    it('should call custom endpoint and custom model when provided', async () => {
+      let capturedUrl = '';
+      let capturedBody = null;
+
+      const mockFetch = async (url, options) => {
+        capturedUrl = url;
+        capturedBody = JSON.parse(options.body);
+        return {
+          ok: true,
+          json: async () => ({
+            choices: [{ message: { content: 'Custom Generated Post by Ollama' } }]
+          })
+        };
+      };
+
+      const result = await generateFanpagePost(
+        {
+          topic: 'custom',
+          customTopicText: 'Microservices Go',
+          config: {
+            provider: 'custom',
+            customEndpoint: 'http://localhost:11434/v1/chat/completions',
+            customModel: 'llama3:latest'
+          }
+        },
+        mockFetch
+      );
+
+      assert.equal(result.success, true);
+      assert.equal(result.source, 'ai');
+      assert.equal(capturedUrl, 'http://localhost:11434/v1/chat/completions');
+      assert.equal(capturedBody.model, 'llama3:latest');
+      assert.equal(result.content, 'Custom Generated Post by Ollama');
+    });
   });
 
   describe('getTopicTemplates', () => {

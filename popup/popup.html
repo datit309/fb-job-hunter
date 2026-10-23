@@ -168,13 +168,29 @@
               <option value="deepseek" selected>DeepSeek (deepseek-chat - Rẻ & Thông minh)</option>
               <option value="openai">OpenAI (gpt-4o-mini)</option>
               <option value="gemini">Google Gemini (gemini-1.5-flash)</option>
+              <option value="custom">Tùy chỉnh (Custom Endpoint — OpenRouter, Ollama, Groq...)</option>
             </select>
+          </div>
+
+          <!-- Custom AI Endpoint Group -->
+          <div id="custom-ai-group" class="custom-ai-container" style="display: none;">
+            <div class="form-group">
+              <label>API Endpoint URL:</label>
+              <input type="url" id="ai-custom-endpoint" class="form-input" placeholder="https://openrouter.ai/api/v1/chat/completions hoặc http://localhost:11434/v1/chat/completions">
+              <span class="field-hint">Hỗ trợ mọi endpoint chuẩn OpenAI (OpenRouter, Groq, Together, vLLM, Ollama, LM Studio...).</span>
+            </div>
+
+            <div class="form-group">
+              <label>Tên Model (Model ID):</label>
+              <input type="text" id="ai-custom-model" class="form-input" placeholder="Ví dụ: deepseek/deepseek-r1, llama-3.3-70b-versatile, qwen2.5:latest">
+              <span class="field-hint">Tên định danh model cần gọi (ví dụ: gpt-4o, deepseek-chat, llama-3.3).</span>
+            </div>
           </div>
 
           <div class="form-group">
             <label>API Key:</label>
             <div class="password-input-wrapper">
-              <input type="password" id="ai-api-key" class="form-input" placeholder="sk-...">
+              <input type="password" id="ai-api-key" class="form-input" placeholder="sk-... (để trống nếu dùng Ollama/Local LLM)">
               <button type="button" id="toggle-key-visibility" class="btn-icon">👁️</button>
             </div>
             <span class="field-hint">Key chỉ lưu trực tiếp trong trình duyệt máy bạn (chrome.storage.local).</span>

@@ -14,7 +14,10 @@
     "https://api.telegram.org/*",
     "https://api.deepseek.com/*",
     "https://api.openai.com/*",
-    "https://generativelanguage.googleapis.com/*"
+    "https://generativelanguage.googleapis.com/*",
+    "https://*/*",
+    "http://localhost/*",
+    "http://127.0.0.1/*"
   ],
   "action": {
     "default_popup": "popup/popup.html",

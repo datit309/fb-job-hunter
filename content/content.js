@@ -191,23 +191,31 @@ QUY TẮC BẮT BUỘC ĐỂ TRÁNH BỊ FACEBOOK QUÉT SPAM / ẨN COMMENT:
 /**
  * Returns API endpoint and default model for the selected provider
  */
-function getProviderConfig(provider) {
+function getProviderConfig(provider, customEndpoint = '', customModel = '') {
+  const trimmedEndpoint = customEndpoint?.trim();
+  const trimmedModel = customModel?.trim();
+
   switch (provider) {
+    case 'custom':
+      return {
+        url: trimmedEndpoint || 'https://api.openai.com/v1/chat/completions',
+        model: trimmedModel || 'gpt-4o-mini'
+      };
     case 'deepseek':
       return {
-        url: 'https://api.deepseek.com/chat/completions',
-        model: 'deepseek-chat'
+        url: trimmedEndpoint || 'https://api.deepseek.com/chat/completions',
+        model: trimmedModel || 'deepseek-chat'
       };
     case 'gemini':
       return {
-        url: 'https://generativelanguage.googleapis.com/v1beta/openai/chat/completions',
-        model: 'gemini-1.5-flash'
+        url: trimmedEndpoint || 'https://generativelanguage.googleapis.com/v1beta/openai/chat/completions',
+        model: trimmedModel || 'gemini-1.5-flash'
       };
     case 'openai':
     default:
       return {
-        url: 'https://api.openai.com/v1/chat/completions',
-        model: 'gpt-4o-mini'
+        url: trimmedEndpoint || 'https://api.openai.com/v1/chat/completions',
+        model: trimmedModel || 'gpt-4o-mini'
       };
   }
 }
@@ -230,10 +238,14 @@ async function generateAIPitch(postText, config = {}, fetchFn = fetch) {
   const isEnabled = Boolean(aiConfig.enabled !== undefined ? aiConfig.enabled : config.aiEnabled);
   const apiKey = (aiConfig.apiKey || config.aiApiKey || '').trim();
   const provider = aiConfig.provider || config.aiProvider || 'deepseek';
+  const customEndpoint = (aiConfig.customEndpoint || config.aiCustomEndpoint || '').trim();
+  const customModel = (aiConfig.customModel || config.aiCustomModel || '').trim();
   const customPrompt = aiConfig.customPrompt || config.aiCustomPrompt || '';
 
-  // Check if AI generation is enabled and has API key
-  if (!isEnabled || !apiKey) {
+  // Check if AI generation is enabled and has valid requirements
+  // For 'custom' provider, allow empty apiKey if customEndpoint is provided (e.g. local Ollama / LM Studio)
+  const isCustomWithEndpoint = provider === 'custom' && Boolean(customEndpoint);
+  if (!isEnabled || (!apiKey && !isCustomWithEndpoint)) {
     const randomTemplate = spintaxTemplates[Math.floor(Math.random() * spintaxTemplates.length)];
     return {
       comment: parseSpintax(randomTemplate),
@@ -243,7 +255,7 @@ async function generateAIPitch(postText, config = {}, fetchFn = fetch) {
     };
   }
 
-  const providerMeta = getProviderConfig(provider);
+  const providerMeta = getProviderConfig(provider, customEndpoint, customModel);
   const systemPrompt = buildSystemPrompt(customPrompt, config.isCompanyPage !== false);
 
   const requestBody = {
@@ -256,13 +268,17 @@ async function generateAIPitch(postText, config = {}, fetchFn = fetch) {
     max_tokens: 120
   };
 
+  const headers = {
+    'Content-Type': 'application/json'
+  };
+  if (apiKey) {
+    headers.Authorization = `Bearer ${apiKey}`;
+  }
+
   try {
     const response = await fetchFn(providerMeta.url, {
       method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        Authorization: `Bearer ${apiKey}`
-      },
+      headers,
       body: JSON.stringify(requestBody)
     });
 

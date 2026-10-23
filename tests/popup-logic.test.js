@@ -73,5 +73,32 @@ describe('Config Helper & Validation', () => {
     });
     assert.equal(clamped.campaignConfig.postsCount, 30);
   });
+
+  it('should validate and sanitize aiConfig with custom endpoint and model correctly', () => {
+    const valid = validateConfig({
+      aiConfig: {
+        enabled: true,
+        provider: 'custom',
+        apiKey: '  sk-secret  ',
+        customEndpoint: '  https://api.groq.com/openai/v1/chat/completions  ',
+        customModel: '  llama-3.3-70b-versatile  ',
+        customPrompt: '  Viết ngắn gọn  '
+      }
+    });
+
+    assert.equal(valid.aiConfig.enabled, true);
+    assert.equal(valid.aiConfig.provider, 'custom');
+    assert.equal(valid.aiConfig.apiKey, 'sk-secret');
+    assert.equal(valid.aiConfig.customEndpoint, 'https://api.groq.com/openai/v1/chat/completions');
+    assert.equal(valid.aiConfig.customModel, 'llama-3.3-70b-versatile');
+    assert.equal(valid.aiConfig.customPrompt, 'Viết ngắn gọn');
+
+    const empty = validateConfig({});
+    assert.ok(empty.aiConfig);
+    assert.equal(empty.aiConfig.enabled, false);
+    assert.equal(empty.aiConfig.provider, 'deepseek');
+    assert.equal(empty.aiConfig.customEndpoint, '');
+    assert.equal(empty.aiConfig.customModel, '');
+  });
 });
 

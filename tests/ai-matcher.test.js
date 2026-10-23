@@ -116,4 +116,71 @@ describe('AI Matcher & Pitch Generator', () => {
     assert.ok(res.comment.includes('mình làm được'));
     assert.ok(res.error.includes('Network timeout'));
   });
+
+  it('should call custom endpoint and custom model when provider is custom', async () => {
+    let capturedUrl = '';
+    let capturedBody = null;
+    let capturedHeaders = null;
+
+    const mockFetch = async (url, options) => {
+      capturedUrl = url;
+      capturedBody = JSON.parse(options.body);
+      capturedHeaders = options.headers;
+      return {
+        ok: true,
+        json: async () => ({
+          choices: [{ message: { content: 'Custom Pitch for Flutter Job' } }]
+        })
+      };
+    };
+
+    const config = {
+      aiConfig: {
+        enabled: true,
+        provider: 'custom',
+        apiKey: 'sk-openrouter-key',
+        customEndpoint: 'https://openrouter.ai/api/v1/chat/completions',
+        customModel: 'meta-llama/llama-3.3-70b-instruct'
+      }
+    };
+
+    const res = await generateAIPitch('Tuyển dev Flutter', config, mockFetch);
+    assert.equal(res.success, true);
+    assert.equal(capturedUrl, 'https://openrouter.ai/api/v1/chat/completions');
+    assert.equal(capturedBody.model, 'meta-llama/llama-3.3-70b-instruct');
+    assert.equal(capturedHeaders.Authorization, 'Bearer sk-openrouter-key');
+    assert.equal(res.comment, 'Custom Pitch for Flutter Job');
+  });
+
+  it('should support local LLM (Ollama) with custom endpoint and no apiKey', async () => {
+    let capturedUrl = '';
+    let capturedHeaders = null;
+
+    const mockFetch = async (url, options) => {
+      capturedUrl = url;
+      capturedHeaders = options.headers;
+      return {
+        ok: true,
+        json: async () => ({
+          choices: [{ message: { content: 'Local Ollama Pitch' } }]
+        })
+      };
+    };
+
+    const config = {
+      aiConfig: {
+        enabled: true,
+        provider: 'custom',
+        apiKey: '',
+        customEndpoint: 'http://localhost:11434/v1/chat/completions',
+        customModel: 'qwen2.5:latest'
+      }
+    };
+
+    const res = await generateAIPitch('Tuyển dev Python', config, mockFetch);
+    assert.equal(res.success, true);
+    assert.equal(capturedUrl, 'http://localhost:11434/v1/chat/completions');
+    assert.equal(capturedHeaders.Authorization, undefined);
+    assert.equal(res.comment, 'Local Ollama Pitch');
+  });
 });
