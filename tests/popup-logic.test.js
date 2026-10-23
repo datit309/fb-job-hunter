@@ -33,4 +33,23 @@ describe('Config Helper & Validation', () => {
     const cfg4 = validateConfig({});
     assert.equal(cfg4.scanScope, 'all');
   });
+
+  it('should validate and sanitize fanpageConfig correctly', () => {
+    const valid = validateConfig({
+      fanpageConfig: {
+        pageId: ' 123456789 ',
+        pageToken: ' EAAToken123 ',
+        defaultTopic: 'web'
+      }
+    });
+
+    assert.equal(valid.fanpageConfig.pageId, '123456789');
+    assert.equal(valid.fanpageConfig.pageToken, 'EAAToken123');
+    assert.equal(valid.fanpageConfig.defaultTopic, 'web');
+
+    const empty = validateConfig({});
+    assert.ok(empty.fanpageConfig);
+    assert.equal(empty.fanpageConfig.pageId, '');
+    assert.equal(empty.fanpageConfig.pageToken, '');
+  });
 });

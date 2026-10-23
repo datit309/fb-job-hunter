@@ -606,3 +606,51 @@ input:checked + .slider:before {
 .save-toast.visible {
   opacity: 1;
 }
+
+/* Button success */
+.btn-success {
+  background-color: var(--accent-success);
+  color: #fff;
+}
+.btn-success:hover {
+  background-color: #059669;
+}
+
+/* Publish result box */
+.publish-result-box {
+  padding: 10px 12px;
+  border-radius: var(--radius-sm);
+  font-size: 11px;
+  line-height: 1.4;
+}
+.publish-result-box.success {
+  background: rgba(16, 185, 129, 0.15);
+  border: 1px solid rgba(16, 185, 129, 0.3);
+  color: #6ee7b7;
+}
+.publish-result-box.error {
+  background: rgba(239, 68, 68, 0.15);
+  border: 1px solid rgba(239, 68, 68, 0.3);
+  color: #fca5a5;
+}
+.publish-result-box a {
+  color: #38bdf8;
+  font-weight: 600;
+  text-decoration: underline;
+}
+
+/* Guide steps */
+.guide-steps {
+  font-size: 11px;
+  color: var(--text-secondary);
+  line-height: 1.5;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+.guide-steps p {
+  margin: 0;
+}
+.guide-steps strong {
+  color: var(--text-primary);
+}

@@ -10,6 +10,7 @@
   ],
   "host_permissions": [
     "*://*.facebook.com/*",
+    "https://graph.facebook.com/*",
     "https://api.telegram.org/*",
     "https://api.deepseek.com/*",
     "https://api.openai.com/*",

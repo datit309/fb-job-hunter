@@ -15,15 +15,21 @@ Extension trình duyệt (Chrome / Brave / Edge - Manifest V3) tự động qué
    - **Cơ chế Spintax Chống Trùng**: Hỗ trợ cú pháp xoay từ đa tầng `{Chào bạn|Hi bạn} {mình|em} chuyên nhận {làm web|viết tool}...` giúp mỗi comment gửi đi là độc nhất, không bị Facebook quét spam.
    - **AI Smart Pitch (DeepSeek / OpenAI / Gemini)**: Đọc hiểu ngữ cảnh bài đăng của khách hàng và tự động tạo câu chào hàng may đo chuẩn xác theo đúng bài toán và công nghệ khách đang cần.
 
-3. **Cơ Chế Bảo Vệ Tài Khoản Facebook (Anti-Checkpoint)**:
+3. **Auto Đăng Bài Lên Fanpage (Meta Graph API & AI Copywriter)**:
+   - **Đăng bài chính thống qua Meta Graph API v19.0**: Đăng bài trực tiếp lên Fanpage của bạn mà không lo checkpoint tài khoản hay dính hạn chế spam.
+   - **AI Copywriter chuyên sâu B2B**: Tự động soạn bài viết quảng bá dịch vụ phần mềm, thiết kế web, làm app di động, viết tool tự động hóa với hook hấp dẫn, thế mạnh công nghệ, CTA thôi thúc và hashtag chuẩn SEO.
+   - **Mẫu bài viết dự phòng chuyên nghiệp**: Luôn sẵn sàng tạo bài ngay cả khi chưa gắn API Key.
+   - **Kiểm tra quyền Page trực tiếp**: Bấm nút kiểm tra để xác thực Page ID và Token trước khi đăng.
+
+4. **Cơ Chế Bảo Vệ Tài Khoản Facebook (Anti-Checkpoint)**:
    - **Random Jitter Delay**: Giãn cách ngẫu nhiên giữa 2 lần comment (mặc định 60s - 180s).
    - **Human Typing Emulation**: Gõ từng ký tự với tốc độ biến thiên kèm độ trễ tự nhiên, kích hoạt đầy đủ DOM events (`InputEvent`, `beforeinput`, `input`, `change`).
-   - **Deduplication Engine**: Lưu vết ID và URL bài viết, tuyệt đối không comment trùng lặp vào 1 bài.
+   - **4-Tier Anti-Duplication Engine**: Kiểm tra trùng 4 lớp (Post ID, Post URL, Author + Text Hash, và nhận diện comment đã tồn tại trong DOM).
    - **Daily Quota**: Giới hạn tối đa số comment/ngày (khuyên dùng 20-30 cmt/ngày).
 
-4. **Trực Quan & Tiện Lợi**:
+5. **Trực Quan & Tiện Lợi**:
    - **Floating In-Page Widget**: Hiển thị radar trạng thái ngay góc màn hình Facebook, có nút tạm dừng nhanh và xem danh sách việc mới tìm thấy.
-   - **Telegram Instant Alert**: Gửi thông báo bài đăng và nội dung comment về bot Telegram cá nhân ngay tức thì.
+   - **Telegram Instant Alert**: Gửi thông báo bài đăng và nội dung comment về bot Telegram cá nhân ngay tức thì (kèm nút test bắn thử tin nhắn).
    - **Giao Diện Popup SaaS Cao Cấp**: Thống kê số bài quét, tỷ lệ khớp, lịch sử comment có link trực tiếp đến bài viết.
 
 ---
@@ -73,12 +79,22 @@ Nếu muốn câu trả lời được AI viết riêng cho từng bài:
 - Dán **API Key** của bạn vào.
 - Tùy chỉnh chỉ dẫn thêm (Prompt): Ví dụ *"Nhấn mạnh mình có 5 năm kinh nghiệm, làm việc đúng hẹn, có thể xuất hóa đơn VAT"*.
 
-### 4. Cấu Hình An Toàn & Telegram (Tab "An toàn")
+### 4. Đăng Bài Lên Fanpage (Tab "Đăng Page")
+Tính năng giúp bạn phủ sóng thương hiệu và thu hút khách hàng tiềm năng:
+- **Page ID**: Nhập ID Trang Fanpage của bạn.
+- **Page Access Token**: Nhập Access Token được cấp từ Meta for Developers (có quyền `pages_manage_posts`).
+- Bấm **"🔍 Kiểm tra quyền Page"** để kiểm tra tính hợp lệ của token ngay lập tức.
+- Chọn chủ đề bài đăng: *Web, Tool tự động hóa, Mobile App, hoặc Tự nhập theo ý thích*.
+- Bấm **"🤖 AI Soạn bài viết ngay"**: AI sẽ tự động tạo bài viết hoàn chỉnh với tiêu đề lôi cuốn, giải pháp công nghệ, cam kết và hashtag.
+- Xem lại nội dung và bấm **"🚀 Đăng lên Fanpage ngay"**: Bài viết sẽ được xuất bản trực tiếp lên Page!
+
+### 5. Cấu Hình An Toàn & Telegram (Tab "An toàn")
 - **Thời gian nghỉ ngẫu nhiên**: Để mặc định `60` - `180` giây.
 - **Giới hạn số comment / ngày**: Đặt `20` - `30` comment để tài khoản an toàn tuyệt đối.
 - **Telegram Webhook**:
   - Nhập `Bot Token` (tạo từ `@BotFather`).
   - Nhập `Chat ID` (lấy từ `@userinfobot`).
+  - Bấm **"✈️ Bắn tin nhắn Test Telegram"** để thử nghiệm kết nối.
   - Mỗi khi tool tìm thấy việc và comment thành công, điện thoại bạn sẽ nhận được thông báo ngay lập tức!
 
 ---
@@ -101,7 +117,7 @@ fb-job-hunter/
 ├── background/
 │   └── service-worker.js      # Background worker, Telegram webhook, lifecycle
 ├── content/
-│   ├── content.js             # Content script chính chạy trên Facebook
+│   ├── content.js             # Content script đã đóng gói (Bundle)
 │   ├── dom-scanner.js         # Quét và trích xuất cấu trúc bài viết Facebook
 │   ├── commenter.js           # Tự động gõ phím kiểu người thật và gửi comment
 │   ├── safety.js              # Quản lý cooldown, giới hạn ngày và tránh trùng bài
@@ -111,15 +127,21 @@ fb-job-hunter/
 │   ├── filter-engine.js       # Bộ lọc từ khóa có dấu / không dấu & tính điểm
 │   ├── spintax.js             # Parser xoay từ spintax đa tầng {A|B|C}
 │   ├── ai-matcher.js          # Tích hợp API DeepSeek / OpenAI sinh pitch
+│   ├── ai-post-writer.js      # Trình tạo bài đăng truyền thông bằng AI / mẫu
+│   ├── page-publisher.js      # Module đăng bài lên Fanpage qua Meta Graph API
+│   ├── telegram.js            # Module gửi thông báo Telegram
 │   └── config-helper.js       # Xử lý và kiểm tra dữ liệu cấu hình
 ├── popup/
 │   ├── popup.html             # Giao diện bảng điều khiển chính
 │   ├── popup.css              # Giao diện Dark theme chuẩn SaaS
 │   └── popup.js               # Logic điều khiển, lưu trữ và hiển thị thống kê
-└── tests/                     # 31 unit & E2E tests tự động
+└── tests/                     # 60 unit & E2E tests tự động
     ├── spintax.test.js
     ├── filter-engine.test.js
     ├── ai-matcher.test.js
+    ├── ai-post-writer.test.js
+    ├── page-publisher.test.js
+    ├── telegram.test.js
     ├── dom-scanner.test.js
     ├── safety.test.js
     ├── manifest.test.js
@@ -138,4 +160,4 @@ cd fb-job-hunter
 npm test
 ```
 
-Toàn bộ 31 test case bao gồm parser, filter, scanner, safety, UI logic và kịch bản E2E sẽ được chạy tự động.
+Toàn bộ 60 test case bao gồm parser, filter, scanner, safety, Graph API publisher, AI post writer, Telegram, UI logic và kịch bản E2E sẽ được chạy tự động.

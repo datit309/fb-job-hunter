@@ -1,6 +1,8 @@
 import { parseSpintax } from '../lib/spintax.js';
 import { formatKeywordsInput, validateConfig } from '../lib/config-helper.js';
 import { sendTelegramMessage, formatTestMessage } from '../lib/telegram.js';
+import { publishToPage, verifyPageToken } from '../lib/page-publisher.js';
+import { generateFanpagePost } from '../lib/ai-post-writer.js';
 
 // Safe storage access helper
 async function getStoredConfig() {
@@ -62,6 +64,24 @@ async function initPopup() {
   const tgChatIdInput = document.getElementById('tg-chat-id');
   const btnTestTelegram = document.getElementById('btn-test-telegram');
   const tgTestStatus = document.getElementById('tg-test-status');
+
+  // Fanpage Auto-Publisher elements
+  const fanpageIdInput = document.getElementById('fanpage-id');
+  const fanpageTokenInput = document.getElementById('fanpage-token');
+  const toggleTokenVisibility = document.getElementById('toggle-token-visibility');
+  const btnVerifyPageToken = document.getElementById('btn-verify-page-token');
+  const pageVerifyStatus = document.getElementById('page-verify-status');
+  const fanpageTopicSelect = document.getElementById('fanpage-topic');
+  const customTopicGroup = document.getElementById('custom-topic-group');
+  const fanpageCustomTopicInput = document.getElementById('fanpage-custom-topic');
+  const fanpageHighlightsInput = document.getElementById('fanpage-highlights');
+  const fanpageContactInfoInput = document.getElementById('fanpage-contact-info');
+  const btnGenerateFanpagePost = document.getElementById('btn-generate-fanpage-post');
+  const aiGenerateStatus = document.getElementById('ai-generate-status');
+  const fanpagePostContent = document.getElementById('fanpage-post-content');
+  const fanpagePostLink = document.getElementById('fanpage-post-link');
+  const btnPublishFanpagePost = document.getElementById('btn-publish-fanpage-post');
+  const fanpagePublishResult = document.getElementById('fanpage-publish-result');
 
   const historyContainer = document.getElementById('history-container');
   const btnClearHistory = document.getElementById('btn-clear-history');
@@ -196,6 +216,15 @@ async function initPopup() {
     if (tgTokenInput) tgTokenInput.value = cfg.telegramConfig?.botToken || cfg.telegramBotToken || '';
     if (tgChatIdInput) tgChatIdInput.value = cfg.telegramConfig?.chatId || cfg.telegramChatId || '';
 
+    if (fanpageIdInput) fanpageIdInput.value = cfg.fanpageConfig?.pageId || '';
+    if (fanpageTokenInput) fanpageTokenInput.value = cfg.fanpageConfig?.pageToken || '';
+    if (fanpageTopicSelect) {
+      fanpageTopicSelect.value = cfg.fanpageConfig?.defaultTopic || 'general';
+      if (customTopicGroup) {
+        customTopicGroup.style.display = fanpageTopicSelect.value === 'custom' ? 'block' : 'none';
+      }
+    }
+
     renderHistory(cfg.history || []);
   }
 
@@ -267,6 +296,158 @@ async function initPopup() {
         }
       } finally {
         btnTestTelegram.disabled = false;
+      }
+    });
+  }
+
+  // Fanpage Token Visibility Toggle
+  if (toggleTokenVisibility && fanpageTokenInput) {
+    toggleTokenVisibility.addEventListener('click', () => {
+      if (fanpageTokenInput.type === 'password') {
+        fanpageTokenInput.type = 'text';
+        toggleTokenVisibility.textContent = '🙈';
+      } else {
+        fanpageTokenInput.type = 'password';
+        toggleTokenVisibility.textContent = '👁️';
+      }
+    });
+  }
+
+  // Fanpage Topic Change
+  if (fanpageTopicSelect && customTopicGroup) {
+    fanpageTopicSelect.addEventListener('change', () => {
+      customTopicGroup.style.display = fanpageTopicSelect.value === 'custom' ? 'block' : 'none';
+    });
+  }
+
+  // Verify Fanpage Token
+  if (btnVerifyPageToken) {
+    btnVerifyPageToken.addEventListener('click', async () => {
+      const pageId = (fanpageIdInput?.value || '').trim();
+      const accessToken = (fanpageTokenInput?.value || '').trim();
+
+      if (!pageId || !accessToken) {
+        if (pageVerifyStatus) {
+          pageVerifyStatus.textContent = '⚠️ Vui lòng nhập Page ID và Page Access Token trước!';
+          pageVerifyStatus.style.color = '#f59e0b';
+        }
+        return;
+      }
+
+      btnVerifyPageToken.disabled = true;
+      if (pageVerifyStatus) {
+        pageVerifyStatus.textContent = '⏳ Đang kiểm tra quyền với Meta Graph API...';
+        pageVerifyStatus.style.color = '#38bdf8';
+      }
+
+      const res = await verifyPageToken({ pageId, accessToken });
+      btnVerifyPageToken.disabled = false;
+
+      if (res.valid) {
+        pageVerifyStatus.textContent = `✅ Hợp lệ! Trang: "${res.name}" (ID: ${res.id})`;
+        pageVerifyStatus.style.color = '#10b981';
+      } else {
+        pageVerifyStatus.textContent = `❌ Lỗi: ${res.error}`;
+        pageVerifyStatus.style.color = '#ef4444';
+      }
+    });
+  }
+
+  // Generate Fanpage Promotional Post with AI / Templates
+  if (btnGenerateFanpagePost) {
+    btnGenerateFanpagePost.addEventListener('click', async () => {
+      btnGenerateFanpagePost.disabled = true;
+      if (aiGenerateStatus) {
+        aiGenerateStatus.textContent = '⏳ Đang tạo bài viết...';
+        aiGenerateStatus.style.color = '#38bdf8';
+      }
+
+      const topic = fanpageTopicSelect?.value || 'general';
+      const customTopicText = (fanpageCustomTopicInput?.value || '').trim();
+      const serviceHighlights = (fanpageHighlightsInput?.value || '').trim();
+      const contactInfo = (fanpageContactInfoInput?.value || '').trim();
+
+      const aiCfg = {
+        apiKey: (aiApiKey?.value || '').trim(),
+        provider: aiProvider?.value || 'deepseek',
+        model: aiProvider?.value === 'deepseek' ? 'deepseek-chat' : 'gpt-4o-mini'
+      };
+
+      try {
+        const res = await generateFanpagePost({
+          topic,
+          customTopicText,
+          serviceHighlights,
+          contactInfo,
+          config: aiCfg
+        });
+
+        if (fanpagePostContent) {
+          fanpagePostContent.value = res.content;
+        }
+
+        if (aiGenerateStatus) {
+          if (res.source === 'ai') {
+            aiGenerateStatus.textContent = '✨ Đã tạo bài bằng AI thành công!';
+            aiGenerateStatus.style.color = '#10b981';
+          } else if (res.warning) {
+            aiGenerateStatus.textContent = `⚠️ Dùng mẫu chuẩn (${res.warning})`;
+            aiGenerateStatus.style.color = '#f59e0b';
+          } else {
+            aiGenerateStatus.textContent = '📋 Đã tạo bài từ mẫu dịch vụ chuyên nghiệp!';
+            aiGenerateStatus.style.color = '#38bdf8';
+          }
+        }
+      } catch (err) {
+        if (aiGenerateStatus) {
+          aiGenerateStatus.textContent = `❌ Lỗi: ${err.message}`;
+          aiGenerateStatus.style.color = '#ef4444';
+        }
+      } finally {
+        btnGenerateFanpagePost.disabled = false;
+      }
+    });
+  }
+
+  // Publish Post to Facebook Page via Meta Graph API
+  if (btnPublishFanpagePost) {
+    btnPublishFanpagePost.addEventListener('click', async () => {
+      const pageId = (fanpageIdInput?.value || '').trim();
+      const accessToken = (fanpageTokenInput?.value || '').trim();
+      const message = (fanpagePostContent?.value || '').trim();
+      const link = (fanpagePostLink?.value || '').trim();
+
+      if (!fanpagePublishResult) return;
+
+      if (!pageId || !accessToken) {
+        fanpagePublishResult.className = 'publish-result-box error';
+        fanpagePublishResult.textContent = '⚠️ Vui lòng nhập Page ID và Page Access Token ở trên trước khi đăng!';
+        fanpagePublishResult.style.display = 'block';
+        return;
+      }
+
+      if (!message) {
+        fanpagePublishResult.className = 'publish-result-box error';
+        fanpagePublishResult.textContent = '⚠️ Vui lòng nhập hoặc tạo nội dung bài viết trước khi đăng!';
+        fanpagePublishResult.style.display = 'block';
+        return;
+      }
+
+      btnPublishFanpagePost.disabled = true;
+      fanpagePublishResult.className = 'publish-result-box';
+      fanpagePublishResult.textContent = '⏳ Đang đăng bài lên Fanpage qua Meta Graph API...';
+      fanpagePublishResult.style.color = '#38bdf8';
+      fanpagePublishResult.style.display = 'block';
+
+      try {
+        const result = await publishToPage({ pageId, accessToken, message, link });
+        fanpagePublishResult.className = 'publish-result-box success';
+        fanpagePublishResult.innerHTML = `🎉 Đăng bài thành công!<br>Mã bài viết: <strong>${result.postId}</strong><br><a href="${result.postUrl}" target="_blank">👉 Bấm vào đây để xem bài viết trên Facebook</a>`;
+      } catch (err) {
+        fanpagePublishResult.className = 'publish-result-box error';
+        fanpagePublishResult.textContent = `❌ Đăng bài thất bại: ${err.message}`;
+      } finally {
+        btnPublishFanpagePost.disabled = false;
       }
     });
   }
@@ -358,7 +539,12 @@ async function initPopup() {
           chatId: (tgChatIdInput?.value || '').trim()
         },
         telegramBotToken: (tgTokenInput?.value || '').trim(),
-        telegramChatId: (tgChatIdInput?.value || '').trim()
+        telegramChatId: (tgChatIdInput?.value || '').trim(),
+        fanpageConfig: {
+          pageId: (fanpageIdInput?.value || '').trim(),
+          pageToken: (fanpageTokenInput?.value || '').trim(),
+          defaultTopic: fanpageTopicSelect?.value || 'general'
+        }
       };
 
       const validated = validateConfig(rawConfig);

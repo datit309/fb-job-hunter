@@ -53,6 +53,7 @@
       <button class="tab-btn" data-tab="tab-keywords">🔍 Từ khóa</button>
       <button class="tab-btn" data-tab="tab-spintax">💬 Mẫu cmt</button>
       <button class="tab-btn" data-tab="tab-ai">🤖 AI Pitch</button>
+      <button class="tab-btn" data-tab="tab-fanpage">📢 Đăng Page</button>
       <button class="tab-btn" data-tab="tab-safety">🛡️ An toàn</button>
       <button class="tab-btn" data-tab="tab-history">📜 Lịch sử</button>
     </nav>
@@ -182,6 +183,105 @@
           <div class="form-group">
             <label>Chỉ dẫn thêm cho AI (Custom Prompt):</label>
             <textarea id="ai-custom-prompt" class="form-textarea" rows="3" placeholder="Ví dụ: Nhấn mạnh kinh nghiệm 5 năm làm Web/App và cam kết hoàn thành đúng hạn..."></textarea>
+          </div>
+        </div>
+      </section>
+
+      <!-- Tab Fanpage Auto-Publisher -->
+      <section id="tab-fanpage" class="tab-pane">
+        <div class="card">
+          <div class="card-header">
+            <h3>Cấu hình Fanpage (Meta Graph API)</h3>
+            <span class="tooltip">Chính chủ Meta</span>
+          </div>
+          <p class="field-desc">Đăng bài trực tiếp lên Fanpage của bạn thông qua Meta Graph API v19.0 mà không lo checkpoint tài khoản.</p>
+          
+          <div class="form-group">
+            <label>Page ID (ID Trang):</label>
+            <input type="text" id="fanpage-id" class="form-input" placeholder="Ví dụ: 1029384756...">
+            <span class="field-hint">Vào Trang của bạn -> Giới thiệu -> Độ minh bạch của Trang để lấy ID.</span>
+          </div>
+
+          <div class="form-group">
+            <label>Page Access Token:</label>
+            <div class="password-input-wrapper">
+              <input type="password" id="fanpage-token" class="form-input" placeholder="EAA...">
+              <button type="button" id="toggle-token-visibility" class="btn-icon" aria-label="Hiện/Ẩn Access Token">👁️</button>
+            </div>
+            <span class="field-hint">Token có quyền pages_manage_posts và pages_read_engagement.</span>
+          </div>
+
+          <div style="margin-top: 10px; display: flex; align-items: center; gap: 10px; flex-wrap: wrap;">
+            <button type="button" id="btn-verify-page-token" class="btn btn-secondary btn-sm">🔍 Kiểm tra quyền Page</button>
+            <span id="page-verify-status" class="field-hint" style="margin: 0; font-weight: 500;"></span>
+          </div>
+        </div>
+
+        <div class="card">
+          <div class="card-header">
+            <h3>Soạn bài quảng bá dịch vụ</h3>
+          </div>
+          
+          <div class="form-group">
+            <label>Chủ đề bài đăng:</label>
+            <select id="fanpage-topic" class="form-select">
+              <option value="general" selected>🚀 Tổng quan dịch vụ phần mềm & Outsourcing</option>
+              <option value="web">🌐 Thiết kế Website & Web App chuẩn SEO</option>
+              <option value="automation">⚡ Tool tự động hóa, Bot, Crawler dữ liệu</option>
+              <option value="mobile">📱 Ứng dụng di động iOS / Android (Flutter, React Native)</option>
+              <option value="custom">✍️ Tự nhập chủ đề riêng...</option>
+            </select>
+          </div>
+
+          <div class="form-group" id="custom-topic-group" style="display: none;">
+            <label>Nội dung chủ đề tùy chỉnh:</label>
+            <input type="text" id="fanpage-custom-topic" class="form-input" placeholder="Ví dụ: Dịch vụ tích hợp AI ChatGPT vào quy trình kinh doanh">
+          </div>
+
+          <div class="form-group">
+            <label>Điểm mạnh dịch vụ / Techstack (tùy chọn):</label>
+            <input type="text" id="fanpage-highlights" class="form-input" placeholder="Ví dụ: Next.js, Node.js, Bàn giao source code 100%, bảo hành 6 tháng">
+          </div>
+
+          <div class="form-group">
+            <label>Thông tin liên hệ / Lời kêu gọi hành động (CTA):</label>
+            <input type="text" id="fanpage-contact-info" class="form-input" placeholder="Ví dụ: Inbox Page hoặc Zalo: 0987.xxx.xxx">
+          </div>
+
+          <div style="margin-top: 12px; display: flex; align-items: center; gap: 10px;">
+            <button type="button" id="btn-generate-fanpage-post" class="btn btn-primary btn-sm">🤖 AI Soạn bài viết ngay</button>
+            <span id="ai-generate-status" class="field-hint" style="margin: 0;"></span>
+          </div>
+        </div>
+
+        <div class="card">
+          <div class="card-header">
+            <h3>Nội dung bài viết & Đăng bài</h3>
+          </div>
+          
+          <div class="form-group">
+            <label>Nội dung bài đăng (Có thể chỉnh sửa):</label>
+            <textarea id="fanpage-post-content" class="form-textarea" rows="7" placeholder="Nội dung bài viết sẽ hiển thị ở đây sau khi bạn bấm 'AI Soạn bài viết' hoặc tự gõ vào..."></textarea>
+          </div>
+
+          <div class="form-group">
+            <label>Link đính kèm (Website / Portfolio - tùy chọn):</label>
+            <input type="url" id="fanpage-post-link" class="form-input" placeholder="https://yourwebsite.com">
+          </div>
+
+          <button type="button" id="btn-publish-fanpage-post" class="btn btn-success btn-block" style="margin-top: 12px; font-weight: 600; font-size: 13px;">🚀 Đăng lên Fanpage ngay</button>
+          
+          <div id="fanpage-publish-result" class="publish-result-box" style="display: none; margin-top: 10px;"></div>
+        </div>
+
+        <div class="card">
+          <div class="card-header">
+            <h3>💡 3 Bước lấy Page Access Token vĩnh viễn</h3>
+          </div>
+          <div class="guide-steps">
+            <p>1. Truy cập <strong>developers.facebook.com/tools/explorer</strong>.</p>
+            <p>2. Chọn <strong>App</strong> của bạn, tại mục <em>User or Page</em> chọn Trang Fanpage cần đăng.</p>
+            <p>3. Thêm quyền <strong>pages_manage_posts</strong>, <strong>pages_read_engagement</strong> rồi bấm <em>Generate Access Token</em>.</p>
           </div>
         </div>
       </section>
