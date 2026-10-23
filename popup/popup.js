@@ -66,6 +66,7 @@ async function initPopup() {
   const saveToast = document.getElementById('save-toast');
 
   // Tab switching logic (Active immediately)
+  const navTabs = document.querySelector('.nav-tabs');
   const tabButtons = document.querySelectorAll('.tab-btn');
   const tabPanes = document.querySelectorAll('.tab-pane');
 
@@ -74,6 +75,8 @@ async function initPopup() {
     tabButtons.forEach((b) => {
       if (b.dataset.tab === targetId) {
         b.classList.add('active');
+        // Smoothly scroll active tab into view
+        b.scrollIntoView({ behavior: 'smooth', block: 'nearest', inline: 'center' });
       } else {
         b.classList.remove('active');
       }
@@ -95,6 +98,55 @@ async function initPopup() {
       switchTab(targetTab);
     });
   });
+
+  // Enable horizontal mouse wheel scrolling across nav tabs
+  if (navTabs) {
+    navTabs.addEventListener('wheel', (e) => {
+      if (Math.abs(e.deltaY) > Math.abs(e.deltaX) && e.deltaY !== 0) {
+        e.preventDefault();
+        navTabs.scrollLeft += e.deltaY;
+      }
+    }, { passive: false });
+
+    // Drag-to-scroll for desktop mouse navigation
+    let isDown = false;
+    let startX = 0;
+    let scrollStart = 0;
+    let hasDragged = false;
+
+    navTabs.addEventListener('mousedown', (e) => {
+      isDown = true;
+      hasDragged = false;
+      startX = e.pageX - navTabs.offsetLeft;
+      scrollStart = navTabs.scrollLeft;
+    });
+
+    window.addEventListener('mouseup', () => {
+      isDown = false;
+      setTimeout(() => { hasDragged = false; }, 50);
+    });
+
+    navTabs.addEventListener('mousemove', (e) => {
+      if (!isDown) return;
+      const x = e.pageX - navTabs.offsetLeft;
+      const walk = (x - startX) * 1.2;
+      if (Math.abs(walk) > 4) {
+        hasDragged = true;
+        e.preventDefault();
+        navTabs.scrollLeft = scrollStart - walk;
+      }
+    });
+
+    // Prevent accidental tab switch if user was dragging
+    tabButtons.forEach((btn) => {
+      btn.addEventListener('click', (e) => {
+        if (hasDragged) {
+          e.preventDefault();
+          e.stopImmediatePropagation();
+        }
+      }, true);
+    });
+  }
 
   // Toggle API key visibility
   if (toggleKeyVisibility && aiApiKey) {

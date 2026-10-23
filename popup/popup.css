@@ -212,25 +212,50 @@ input:checked + .slider:before {
   background-color: var(--bg-secondary);
   border-bottom: 1px solid var(--border-color);
   overflow-x: auto;
-  scrollbar-width: none;
+  overflow-y: hidden;
+  white-space: nowrap;
+  scroll-behavior: smooth;
+  -webkit-overflow-scrolling: touch;
+  scrollbar-width: thin;
+  scrollbar-color: rgba(148, 163, 184, 0.2) transparent;
+  cursor: grab;
+}
+
+.nav-tabs:active {
+  cursor: grabbing;
 }
 
 .nav-tabs::-webkit-scrollbar {
-  display: none;
+  height: 3px;
+}
+
+.nav-tabs::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+.nav-tabs::-webkit-scrollbar-thumb {
+  background: rgba(148, 163, 184, 0.25);
+  border-radius: 3px;
+}
+
+.nav-tabs::-webkit-scrollbar-thumb:hover {
+  background: var(--accent-primary);
 }
 
 .tab-btn {
-  flex: 1;
-  padding: 8px 6px;
+  flex: 0 0 auto;
+  min-width: max-content;
+  padding: 9px 13px;
   background: none;
   border: none;
   color: var(--text-secondary);
-  font-size: 11px;
+  font-size: 11.5px;
   font-weight: 600;
   cursor: pointer;
   white-space: nowrap;
   border-bottom: 2px solid transparent;
   transition: all 0.2s ease;
+  user-select: none;
 }
 
 .tab-btn:hover {
