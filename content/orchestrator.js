@@ -238,10 +238,10 @@ const DEFAULT_SPINTAX = [
         matchCount++;
         console.log(`[FB Job Hunter] 🎯 KHỚP JOB: Tác giả: "${post.authorName}" (Điểm: ${evalResult.score}). Từ khóa: [${evalResult.matchedWhitelist.join(', ')}]`);
 
-        // Check safety rules
-        const safetyCheck = safety.canComment(post.id);
+        // Check multi-tier safety & anti-duplication rules
+        const safetyCheck = safety.canComment(post, Date.now(), currentIdentity);
         if (!safetyCheck.allowed) {
-          console.log(`[FB Job Hunter] ⏳ Chưa bình luận bài của ${post.authorName}: ${safetyCheck.reason}`);
+          console.log(`[FB Job Hunter] ⏳ Bỏ qua bài của ${post.authorName}: ${safetyCheck.reason}`);
           continue;
         }
 
@@ -255,8 +255,8 @@ const DEFAULT_SPINTAX = [
           updateWidgetStatus(`ĐANG COMMENT: ${post.authorName}`, 'active');
           await postCommentOnFacebook(post.element, commentText);
 
-          // Record comment in safety controller
-          safety.recordComment(post.id, commentText, post.postUrl);
+          // Record comment in safety controller (stores ID, URL, and Content Hash)
+          safety.recordComment(post, commentText, post.postUrl);
 
           // Save to persistent storage history
           const historyItem = {

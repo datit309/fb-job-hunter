@@ -313,7 +313,7 @@ async function generateAIPitch(postText, config = {}, fetchFn = fetch) {
   // === Module: content/safety.js ===
 /**
  * Safety and Anti-Ban Rate Limiting Controller
- * Manages human-like cooldown delays, daily comment quotas, and persistent deduplication.
+ * Manages human-like cooldown delays, daily comment quotas, and 4-tier persistent deduplication.
  */
 
 function calculateRandomDelay(minSec, maxSec, randomFn = Math.random) {
@@ -328,6 +328,36 @@ function getTodayString() {
   return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
 }
 
+function computeContentHash(author, text) {
+  const str = `${(author || 'anon').trim().toLowerCase()}::${(text || '').trim().slice(0, 150).toLowerCase()}`;
+  let hash = 0x811c9dc5;
+  for (let i = 0; i < str.length; i++) {
+    hash ^= str.charCodeAt(i);
+    hash = Math.imul(hash, 0x01000193);
+  }
+  return `hash_${(hash >>> 0).toString(16)}`;
+}
+
+/**
+ * Checks if the current Page or User has already commented on this post element in DOM
+ */
+function isCommentedByMeInDOM(element, myIdentity = null) {
+  if (!element || typeof element.querySelectorAll !== 'function') return false;
+
+  if (myIdentity && typeof myIdentity === 'string' && myIdentity.trim().length > 1) {
+    const normMyId = myIdentity.trim().toLowerCase();
+    const commentNodes = element.querySelectorAll('a[role="link"], span, h3, h4');
+    for (const node of commentNodes) {
+      const text = (node.textContent || '').trim().toLowerCase();
+      if (text === normMyId) {
+        return true;
+      }
+    }
+  }
+
+  return false;
+}
+
 class SafetyController {
   constructor(options = {}) {
     this.dailyLimit = options.dailyLimit ?? 30;
@@ -336,6 +366,9 @@ class SafetyController {
     this.storage = options.storage || null;
 
     this.commentedPosts = new Map(); // postId -> record
+    this.commentedUrls = new Set();  // Set of post URLs
+    this.commentedHashes = new Set();// Set of author+text content hashes
+
     this.todayCommentCount = 0;
     this.lastCommentTime = 0;
     this.nextAvailableTime = 0;
@@ -350,18 +383,71 @@ class SafetyController {
     }
   }
 
-  canComment(postId, now = Date.now()) {
+  /**
+   * Check whether a post can be commented on (Multi-tier Anti-Duplication & Safety checks)
+   * @param {string|object} postOrId - Post ID or full post object
+   * @param {number} now - Timestamp
+   * @param {string} myIdentity - Current Page/User commenting name
+   */
+  canComment(postOrId, now = Date.now(), myIdentity = null) {
     this.checkDateReset();
 
-    // 1. Check duplicate
-    if (this.commentedPosts.has(postId)) {
+    let postId = '';
+    let postUrl = '';
+    let postText = '';
+    let authorName = '';
+    let element = null;
+
+    if (typeof postOrId === 'string') {
+      postId = postOrId;
+    } else if (postOrId && typeof postOrId === 'object') {
+      postId = postOrId.id || postOrId.postId || '';
+      postUrl = postOrId.postUrl || '';
+      postText = postOrId.postText || '';
+      authorName = postOrId.authorName || '';
+      element = postOrId.element || null;
+    }
+
+    // 1. Tier 1: Post ID Duplicate Check
+    if (postId && this.commentedPosts.has(postId)) {
       return {
         allowed: false,
-        reason: `Bài viết [${postId}] đã bình luận trước đó`
+        reason: `Bài viết [${postId}] đã bình luận trước đó (khớp Post ID)`
       };
     }
 
-    // 2. Check daily quota
+    // 2. Tier 2: Post URL Duplicate Check
+    if (postUrl && this.commentedUrls.has(postUrl)) {
+      return {
+        allowed: false,
+        reason: `Bài viết đã bình luận trước đó (khớp URL bài viết)`
+      };
+    }
+
+    // 3. Tier 3: Content Hash Duplicate Check (Chống bài đăng lại hoặc xoay ID)
+    if (postText) {
+      const hash = computeContentHash(authorName, postText);
+      if (this.commentedHashes.has(hash)) {
+        return {
+          allowed: false,
+          reason: `Bài viết trùng nội dung của tác giả "${authorName || 'Khách'}" đã bình luận trước đó`
+        };
+      }
+    }
+
+    // 4. Tier 4: In-DOM Commenter Check (Phát hiện comment của Page/User đã tồn tại trên giao diện)
+    if (element && isCommentedByMeInDOM(element, myIdentity)) {
+      // Mark as already commented so we don't scan it again
+      if (postId) {
+        this.commentedPosts.set(postId, { postId, timestamp: now, reason: 'dom_detected' });
+      }
+      return {
+        allowed: false,
+        reason: `Đã có bình luận của bạn trên bài viết này trong DOM`
+      };
+    }
+
+    // 5. Daily Comment Limit Check
     if (this.todayCommentCount >= this.dailyLimit) {
       return {
         allowed: false,
@@ -369,7 +455,7 @@ class SafetyController {
       };
     }
 
-    // 3. Check cooldown
+    // 6. Human-like Cooldown Delay Check
     if (now < this.nextAvailableTime) {
       const waitSec = Math.ceil((this.nextAvailableTime - now) / 1000);
       return {
@@ -381,18 +467,46 @@ class SafetyController {
     return { allowed: true };
   }
 
-  recordComment(postId, commentText, postUrl, now = Date.now()) {
+  /**
+   * Record a newly posted comment
+   */
+  recordComment(postOrId, commentText, postUrlInput = '', now = Date.now()) {
     this.checkDateReset();
     this.lastRecordedDay = this.currentDateStr || getTodayString();
 
+    let postId = '';
+    let postUrl = postUrlInput;
+    let authorName = '';
+    let postText = '';
+
+    if (typeof postOrId === 'string') {
+      postId = postOrId;
+    } else if (postOrId && typeof postOrId === 'object') {
+      postId = postOrId.id || postOrId.postId || '';
+      postUrl = postUrlInput || postOrId.postUrl || '';
+      authorName = postOrId.authorName || '';
+      postText = postOrId.postText || '';
+    }
+
     const record = {
       postId,
+      authorName,
       commentText,
       postUrl,
       timestamp: now
     };
 
-    this.commentedPosts.set(postId, record);
+    if (postId) {
+      this.commentedPosts.set(postId, record);
+    }
+    if (postUrl) {
+      this.commentedUrls.add(postUrl);
+    }
+    if (postText) {
+      const hash = computeContentHash(authorName, postText);
+      this.commentedHashes.add(hash);
+    }
+
     this.todayCommentCount++;
     this.lastCommentTime = now;
 
@@ -410,11 +524,23 @@ class SafetyController {
     return Array.from(this.commentedPosts.values());
   }
 
+  /**
+   * Hydrate previous comment history from persistent storage
+   */
   loadHistory(historyList = []) {
     if (Array.isArray(historyList)) {
       for (const item of historyList) {
-        if (item && item.postId) {
-          this.commentedPosts.set(item.postId, item);
+        if (!item) continue;
+        const pid = item.id || item.postId;
+        if (pid) {
+          this.commentedPosts.set(pid, item);
+        }
+        if (item.postUrl) {
+          this.commentedUrls.add(item.postUrl);
+        }
+        if (item.postText) {
+          const hash = computeContentHash(item.authorName || '', item.postText);
+          this.commentedHashes.add(hash);
         }
       }
     }
@@ -1568,10 +1694,10 @@ const DEFAULT_SPINTAX = [
         matchCount++;
         console.log(`[FB Job Hunter] 🎯 KHỚP JOB: Tác giả: "${post.authorName}" (Điểm: ${evalResult.score}). Từ khóa: [${evalResult.matchedWhitelist.join(', ')}]`);
 
-        // Check safety rules
-        const safetyCheck = safety.canComment(post.id);
+        // Check multi-tier safety & anti-duplication rules
+        const safetyCheck = safety.canComment(post, Date.now(), currentIdentity);
         if (!safetyCheck.allowed) {
-          console.log(`[FB Job Hunter] ⏳ Chưa bình luận bài của ${post.authorName}: ${safetyCheck.reason}`);
+          console.log(`[FB Job Hunter] ⏳ Bỏ qua bài của ${post.authorName}: ${safetyCheck.reason}`);
           continue;
         }
 
@@ -1585,8 +1711,8 @@ const DEFAULT_SPINTAX = [
           updateWidgetStatus(`ĐANG COMMENT: ${post.authorName}`, 'active');
           await postCommentOnFacebook(post.element, commentText);
 
-          // Record comment in safety controller
-          safety.recordComment(post.id, commentText, post.postUrl);
+          // Record comment in safety controller (stores ID, URL, and Content Hash)
+          safety.recordComment(post, commentText, post.postUrl);
 
           // Save to persistent storage history
           const historyItem = {

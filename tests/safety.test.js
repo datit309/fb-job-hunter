@@ -1,6 +1,6 @@
 import { describe, it, beforeEach } from 'node:test';
 import assert from 'node:assert/strict';
-import { SafetyController, calculateRandomDelay } from '../content/safety.js';
+import { SafetyController, calculateRandomDelay, isCommentedByMeInDOM } from '../content/safety.js';
 
 describe('Safety Controller', () => {
   let safety;
@@ -36,13 +36,8 @@ describe('Safety Controller', () => {
     });
   });
 
-  describe('canComment and recordComment', () => {
-    it('should allow first comment if within quota', () => {
-      const check = safety.canComment('post_1', 1000000);
-      assert.equal(check.allowed, true);
-    });
-
-    it('should prevent commenting on the same post twice', () => {
+  describe('Multi-tier Anti-Duplication Engine', () => {
+    it('should prevent commenting on the same post twice by postId', () => {
       const now = 1000000;
       safety.recordComment('post_1', 'Chào bạn', 'https://fb.com/1', now);
 
@@ -51,6 +46,73 @@ describe('Safety Controller', () => {
       assert.ok(check.reason.includes('đã bình luận'));
     });
 
+    it('should prevent commenting by matching postUrl even with different post id', () => {
+      const now = 1000000;
+      safety.recordComment(
+        { id: 'post_1', postUrl: 'https://www.facebook.com/groups/123/posts/999/', authorName: 'A', postText: 'Hello' },
+        'Chào bạn',
+        '',
+        now
+      );
+
+      // Same URL, different ID
+      const check = safety.canComment(
+        { id: 'post_diff_id', postUrl: 'https://www.facebook.com/groups/123/posts/999/', authorName: 'A', postText: 'Hello' },
+        now + 150000
+      );
+      assert.equal(check.allowed, false);
+      assert.ok(check.reason.includes('khớp URL bài viết'));
+    });
+
+    it('should prevent commenting if author and content hash match (re-posted or ID rotation)', () => {
+      const now = 1000000;
+      safety.recordComment(
+        { id: 'post_1', postUrl: 'https://fb.com/1', authorName: 'Trần Văn Tuyển', postText: 'Cần tìm dev làm web NextJS và Tailwind' },
+        'Chào bạn',
+        '',
+        now
+      );
+
+      // Different ID and URL, but exact same author and content
+      const check = safety.canComment(
+        { id: 'post_rotated_99', postUrl: 'https://fb.com/rotated', authorName: 'Trần Văn Tuyển', postText: 'Cần tìm dev làm web NextJS và Tailwind' },
+        now + 150000
+      );
+      assert.equal(check.allowed, false);
+      assert.ok(check.reason.includes('trùng nội dung'));
+    });
+
+    it('should detect existing comments by my identity directly from post DOM element', () => {
+      const mockElement = {
+        querySelectorAll() {
+          return [
+            { textContent: 'Tech Agency' },
+            { textContent: 'Chào bạn, bên mình nhận làm nhé' }
+          ];
+        }
+      };
+
+      const isCommented = isCommentedByMeInDOM(mockElement, 'Tech Agency');
+      assert.equal(isCommented, true);
+
+      const check = safety.canComment({ id: 'new_post', element: mockElement }, Date.now(), 'Tech Agency');
+      assert.equal(check.allowed, false);
+      assert.ok(check.reason.includes('trong DOM'));
+    });
+
+    it('should correctly hydrate history whether stored with "id" or "postId"', () => {
+      safety.loadHistory([
+        { id: 'hist_1', postUrl: 'https://fb.com/hist1', authorName: 'User 1', postText: 'Tìm dev Flutter' },
+        { postId: 'hist_2', postUrl: 'https://fb.com/hist2', authorName: 'User 2', postText: 'Tìm dev Python' }
+      ]);
+
+      assert.equal(safety.canComment('hist_1', Date.now()).allowed, false);
+      assert.equal(safety.canComment('hist_2', Date.now()).allowed, false);
+      assert.equal(safety.canComment({ postUrl: 'https://fb.com/hist1' }, Date.now()).allowed, false);
+    });
+  });
+
+  describe('Cooldown & Quota Limits', () => {
     it('should enforce cooldown delay between consecutive comments', () => {
       const now = 1000000;
       safety.recordComment('post_1', 'Chào bạn', 'https://fb.com/1', now);
