@@ -115,8 +115,10 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
   if (message.type === 'NOTIFY_JOB_MATCH') {
     chrome.storage.local.get('config', async ({ config }) => {
       const conf = config || DEFAULT_CONFIG;
-      if (conf.telegramBotToken && conf.telegramChatId) {
-        await sendTelegramAlert(conf.telegramBotToken, conf.telegramChatId, message.payload);
+      const botToken = conf.telegramConfig?.botToken || conf.telegramBotToken;
+      const chatId = conf.telegramConfig?.chatId || conf.telegramChatId;
+      if (botToken && chatId) {
+        await sendTelegramAlert(botToken, chatId, message.payload);
       }
     });
     sendResponse({ success: true });

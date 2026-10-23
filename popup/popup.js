@@ -1,5 +1,6 @@
 import { parseSpintax } from '../lib/spintax.js';
 import { formatKeywordsInput, validateConfig } from '../lib/config-helper.js';
+import { sendTelegramMessage, formatTestMessage } from '../lib/telegram.js';
 
 // Safe storage access helper
 async function getStoredConfig() {
@@ -59,6 +60,8 @@ async function initPopup() {
   const dailyLimitInput = document.getElementById('daily-limit');
   const tgTokenInput = document.getElementById('tg-token');
   const tgChatIdInput = document.getElementById('tg-chat-id');
+  const btnTestTelegram = document.getElementById('btn-test-telegram');
+  const tgTestStatus = document.getElementById('tg-test-status');
 
   const historyContainer = document.getElementById('history-container');
   const btnClearHistory = document.getElementById('btn-clear-history');
@@ -190,8 +193,8 @@ async function initPopup() {
     if (maxDelayInput) maxDelayInput.value = cfg.maxCommentDelaySec || 180;
     if (dailyLimitInput) dailyLimitInput.value = cfg.dailyCommentLimit || 30;
 
-    if (tgTokenInput) tgTokenInput.value = cfg.telegramConfig?.botToken || '';
-    if (tgChatIdInput) tgChatIdInput.value = cfg.telegramConfig?.chatId || '';
+    if (tgTokenInput) tgTokenInput.value = cfg.telegramConfig?.botToken || cfg.telegramBotToken || '';
+    if (tgChatIdInput) tgChatIdInput.value = cfg.telegramConfig?.chatId || cfg.telegramChatId || '';
 
     renderHistory(cfg.history || []);
   }
@@ -227,6 +230,44 @@ async function initPopup() {
       const randomLine = lines[Math.floor(Math.random() * lines.length)];
       const generated = parseSpintax(randomLine);
       spintaxPreview.textContent = `"${generated}"`;
+    });
+  }
+
+  // Telegram test message sender
+  if (btnTestTelegram) {
+    btnTestTelegram.addEventListener('click', async () => {
+      const token = (tgTokenInput?.value || '').trim();
+      const chatId = (tgChatIdInput?.value || '').trim();
+
+      if (!token || !chatId) {
+        if (tgTestStatus) {
+          tgTestStatus.textContent = '⚠️ Vui lòng nhập cả Bot Token và Chat ID trước!';
+          tgTestStatus.style.color = '#f59e0b';
+        }
+        return;
+      }
+
+      try {
+        btnTestTelegram.disabled = true;
+        if (tgTestStatus) {
+          tgTestStatus.textContent = '⏳ Đang bắn tin nhắn test tới Telegram...';
+          tgTestStatus.style.color = '#38bdf8';
+        }
+
+        await sendTelegramMessage(token, chatId, formatTestMessage());
+
+        if (tgTestStatus) {
+          tgTestStatus.textContent = '✅ Đã bắn test thành công! Hãy kiểm tra Telegram.';
+          tgTestStatus.style.color = '#10b981';
+        }
+      } catch (err) {
+        if (tgTestStatus) {
+          tgTestStatus.textContent = `❌ Lỗi: ${err.message}`;
+          tgTestStatus.style.color = '#ef4444';
+        }
+      } finally {
+        btnTestTelegram.disabled = false;
+      }
     });
   }
 
@@ -315,7 +356,9 @@ async function initPopup() {
         telegramConfig: {
           botToken: (tgTokenInput?.value || '').trim(),
           chatId: (tgChatIdInput?.value || '').trim()
-        }
+        },
+        telegramBotToken: (tgTokenInput?.value || '').trim(),
+        telegramChatId: (tgChatIdInput?.value || '').trim()
       };
 
       const validated = validateConfig(rawConfig);
