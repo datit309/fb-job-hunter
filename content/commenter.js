@@ -1,6 +1,6 @@
 /**
  * Facebook Human-like Safe Commenter Engine
- * Emulates human mouse clicks, typing delay, and keyboard submission events.
+ * Emulates human mouse clicks, Lexical typing/paste events, and keyboard submission.
  */
 
 function sleep(ms) {
@@ -8,12 +8,11 @@ function sleep(ms) {
 }
 
 /**
- * Finds the comment input textbox inside a post element
+ * Finds the comment input textbox inside a post element or dialog
  */
-export function findCommentInput(postElement) {
-  if (!postElement || typeof postElement.querySelector !== 'function') return null;
+export function findCommentInput(container) {
+  if (!container || typeof container.querySelector !== 'function') return null;
 
-  // Direct textbox selectors inside post
   const textboxSelectors = [
     'div[role="textbox"][contenteditable="true"]',
     'div[aria-label*="Viết bình luận" i][role="textbox"]',
@@ -26,10 +25,10 @@ export function findCommentInput(postElement) {
   ];
 
   for (const sel of textboxSelectors) {
-    const nodes = postElement.querySelectorAll ? postElement.querySelectorAll(sel) : [];
+    const nodes = container.querySelectorAll ? container.querySelectorAll(sel) : [];
     for (const el of nodes) {
-      // Exclude main status creator or search bars
       const aria = (el.getAttribute('aria-label') || '').toLowerCase();
+      // Skip status composer or search bar
       if (
         aria.includes('tìm kiếm') ||
         aria.includes('search') ||
@@ -48,10 +47,10 @@ export function findCommentInput(postElement) {
 /**
  * Clicks the "Bình luận" (Comment) button to open the input box if closed
  */
-export async function triggerCommentBox(postElement) {
-  if (!postElement || typeof postElement.querySelectorAll !== 'function') return false;
+export async function triggerCommentBox(container) {
+  if (!container || typeof container.querySelectorAll !== 'function') return false;
 
-  const buttons = postElement.querySelectorAll('[role="button"], div[tabindex="0"]');
+  const buttons = container.querySelectorAll('[role="button"], div[tabindex="0"]');
   for (const btn of buttons) {
     const text = (btn.textContent || '').trim().toLowerCase();
     const aria = (btn.getAttribute('aria-label') || '').toLowerCase();
@@ -63,11 +62,12 @@ export async function triggerCommentBox(postElement) {
       aria.includes('viết bình luận') ||
       aria.includes('write a comment') ||
       aria === 'bình luận' ||
-      aria === 'comment'
+      aria === 'comment' ||
+      (text.includes('bình luận') && text.length < 20)
     ) {
       btn.click();
       console.log('[FB Job Hunter] Đã click nút mở ô bình luận Facebook');
-      await sleep(1000);
+      await sleep(1200);
       return true;
     }
   }
@@ -89,6 +89,7 @@ export async function humanTypeIntoElement(element, text, speedMs = 25) {
   const innerParagraph = element.querySelector ? element.querySelector('p') : null;
   if (innerParagraph) {
     innerParagraph.focus();
+    innerParagraph.click();
   }
 
   // Clear existing content if any
@@ -98,42 +99,60 @@ export async function humanTypeIntoElement(element, text, speedMs = 25) {
   } catch (e) {}
   await sleep(150);
 
-  // Type characters with natural human jitter
-  let typedSuccessfully = false;
+  // Technique 1: Lexical Paste simulation via DataTransfer (native Lexical PASTE_COMMAND)
   try {
-    for (let i = 0; i < text.length; i++) {
-      const char = text[i];
-      document.execCommand('insertText', false, char);
-      const jitter = Math.floor(Math.random() * 25);
-      await sleep(speedMs + jitter);
-    }
-    typedSuccessfully = true;
-  } catch (typeErr) {
-    console.warn('[FB Job Hunter] execCommand typing fallback:', typeErr);
+    const dt = new DataTransfer();
+    dt.setData('text/plain', text);
+    const pasteEvt = new ClipboardEvent('paste', {
+      clipboardData: dt,
+      bubbles: true,
+      cancelable: true,
+      composed: true
+    });
+    element.dispatchEvent(pasteEvt);
+    await sleep(250);
+  } catch (pasteErr) {
+    console.warn('[FB Job Hunter] Paste simulation warning:', pasteErr);
   }
 
-  // Fallback if text is still empty (modern Lexical beforeinput event)
+  // Technique 2: If paste didn't set content, use character-by-character typing
+  if (!element.textContent || element.textContent.trim().length === 0) {
+    try {
+      for (let i = 0; i < text.length; i++) {
+        const char = text[i];
+        document.execCommand('insertText', false, char);
+        const jitter = Math.floor(Math.random() * 20);
+        await sleep(speedMs + jitter);
+      }
+    } catch (typeErr) {
+      console.warn('[FB Job Hunter] execCommand typing warning:', typeErr);
+    }
+  }
+
+  // Technique 3: InputEvent beforeinput fallback
   if (!element.textContent || element.textContent.trim().length === 0) {
     try {
       const inputEvt = new InputEvent('beforeinput', {
         inputType: 'insertText',
         data: text,
         bubbles: true,
-        cancelable: true
+        cancelable: true,
+        composed: true
       });
       element.dispatchEvent(inputEvt);
-
-      if (!element.textContent || element.textContent.trim().length === 0) {
-        if (innerParagraph) {
-          innerParagraph.textContent = text;
-        } else {
-          element.textContent = text;
-        }
-      }
     } catch (e) {}
   }
 
-  // Trigger input events to notify React/Lexical listeners
+  // Technique 4: Direct DOM content insertion if all else failed
+  if (!element.textContent || element.textContent.trim().length === 0) {
+    if (innerParagraph) {
+      innerParagraph.textContent = text;
+    } else {
+      element.textContent = text;
+    }
+  }
+
+  // Trigger input, change and key events
   element.dispatchEvent(new Event('input', { bubbles: true, composed: true }));
   element.dispatchEvent(new Event('change', { bubbles: true, composed: true }));
   await sleep(500);
@@ -144,10 +163,10 @@ export async function humanTypeIntoElement(element, text, speedMs = 25) {
 /**
  * Submits the typed comment via Enter key and Facebook's Send button
  */
-export async function submitComment(element, postElement = null) {
+export async function submitComment(element, container = null) {
   if (!element) return false;
 
-  // 1. Dispatch full keyboard Enter event
+  // 1. Dispatch full keyboard Enter event (keydown, keypress, keyup)
   const enterEventDown = new KeyboardEvent('keydown', {
     key: 'Enter',
     code: 'Enter',
@@ -181,10 +200,10 @@ export async function submitComment(element, postElement = null) {
   });
   element.dispatchEvent(enterEventUp);
 
-  await sleep(600);
+  await sleep(800);
 
-  // 2. Look for Facebook Send / Submit Button
-  const container = postElement || element.closest('form') || element.closest('div[role="article"]') || document;
+  // 2. Search for Facebook Send / Submit Button
+  const searchRoot = container || element.closest('form') || element.closest('[role="article"]') || document;
   const submitSelectors = [
     'div[aria-label="Bình luận"][role="button"]',
     'div[aria-label="Comment"][role="button"]',
@@ -192,34 +211,25 @@ export async function submitComment(element, postElement = null) {
     'div[aria-label*="Send"][role="button"]',
     'div[aria-label*="Nhấn Enter để gửi"][role="button"]',
     'div[aria-label*="Post"][role="button"]',
-    'form button[type="submit"]'
+    'form button[type="submit"]',
+    'form div[role="button"][tabindex="0"]'
   ];
 
   for (const sel of submitSelectors) {
-    const btn = container.querySelector ? container.querySelector(sel) : null;
+    const btn = searchRoot.querySelector ? searchRoot.querySelector(sel) : null;
     if (btn && btn !== element) {
-      btn.click();
-      console.log('[FB Job Hunter] Đã click nút Gửi bình luận Facebook');
-      await sleep(1000);
-      return true;
-    }
-  }
-
-  // 3. Fallback: check toolbar buttons inside the comment form
-  const form = element.closest ? element.closest('form') : null;
-  if (form && typeof form.querySelectorAll === 'function') {
-    const candidateButtons = form.querySelectorAll('div[role="button"]');
-    for (const b of candidateButtons) {
-      const aria = (b.getAttribute('aria-label') || '').toLowerCase();
-      // Skip emoji, sticker, gif, image buttons
+      const aria = (btn.getAttribute('aria-label') || '').toLowerCase();
+      // Skip emoji, sticker, attachment buttons
       if (
         !aria.includes('emoji') &&
         !aria.includes('nhãn') &&
         !aria.includes('ảnh') &&
         !aria.includes('gif') &&
-        !aria.includes('sticker')
+        !aria.includes('sticker') &&
+        !aria.includes('tệp')
       ) {
-        b.click();
+        btn.click();
+        console.log('[FB Job Hunter] Đã click nút Gửi bình luận Facebook');
         await sleep(1000);
         return true;
       }
@@ -233,11 +243,27 @@ export async function submitComment(element, postElement = null) {
  * Complete comment workflow on a post element
  */
 export async function postCommentOnFacebook(postElement, commentText) {
-  let input = findCommentInput(postElement);
+  // 1. Resolve full post container (article or feed unit)
+  const article =
+    postElement?.closest?.('[role="article"]') ||
+    postElement?.closest?.('div[data-pagelet^="FeedUnit"]') ||
+    postElement?.closest?.('[role="feed"] > div') ||
+    postElement;
+
+  // 2. Locate or trigger comment input
+  let input = findCommentInput(article);
   if (!input) {
-    await triggerCommentBox(postElement);
-    await sleep(1000);
-    input = findCommentInput(postElement);
+    await triggerCommentBox(article);
+    await sleep(1200);
+    input = findCommentInput(article);
+  }
+
+  // 3. Fallback: search immediate dialog if opened in popup
+  if (!input) {
+    const dialog = document.querySelector('div[role="dialog"]');
+    if (dialog) {
+      input = findCommentInput(dialog);
+    }
   }
 
   if (!input) {
@@ -248,6 +274,6 @@ export async function postCommentOnFacebook(postElement, commentText) {
   await humanTypeIntoElement(input, commentText);
 
   console.log('[FB Job Hunter] Đang gửi bình luận...');
-  await submitComment(input, postElement);
+  await submitComment(input, article);
   return true;
 }
