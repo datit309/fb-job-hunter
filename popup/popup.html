@@ -72,6 +72,14 @@
             </label>
           </div>
           <div class="control-row">
+            <span class="label-desc">Phạm vi quét bài:</span>
+            <select id="scan-scope" class="form-select">
+              <option value="all" selected>🌐 Tất cả (Bảng tin & Nhóm)</option>
+              <option value="feed_only">📰 Chỉ Bảng tin (News Feed)</option>
+              <option value="groups_only">👥 Chỉ Nhóm (Facebook Groups)</option>
+            </select>
+          </div>
+          <div class="control-row">
             <span class="label-desc">Tần suất quét DOM:</span>
             <select id="scan-interval" class="form-select">
               <option value="3000">3 giây (Nhanh)</option>
@@ -87,7 +95,7 @@
             <span class="badge" id="recent-count">0 bài</span>
           </div>
           <div class="recent-list" id="recent-list">
-            <div class="empty-state">Chưa có bài đăng nào được ghi nhận. Hãy mở tab Facebook Group để tool bắt đầu quét!</div>
+            <div class="empty-state">Chưa có bài đăng nào được ghi nhận. Hãy mở Facebook (Bảng tin hoặc Nhóm) để tool bắt đầu quét!</div>
           </div>
         </div>
       </section>

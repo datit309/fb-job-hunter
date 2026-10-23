@@ -18,16 +18,51 @@ export function generatePostId(author, text) {
 }
 
 /**
+ * Detect if a Facebook feed element is a Sponsored advertisement
+ */
+export function isSponsoredPost(el) {
+  if (!el || typeof el.querySelector !== 'function') return false;
+
+  // Direct aria-label or link check
+  if (
+    el.querySelector('[aria-label="Được tài trợ"], [aria-label="Sponsored"]') ||
+    el.querySelector('a[href*="/ads/about"], a[href*="facebook.com/ads/"]')
+  ) {
+    return true;
+  }
+
+  // Header span check
+  const header = el.querySelector('h2, h3, h4, [role="heading"]');
+  if (header) {
+    const headerParent = header.parentElement;
+    if (headerParent) {
+      const text = headerParent.textContent?.toLowerCase() || '';
+      if (text.includes('được tài trợ') || text.includes('sponsored')) {
+        return true;
+      }
+    }
+  }
+
+  return false;
+}
+
+/**
  * Extract author name from post element
  */
 function extractAuthor(el) {
   const authorCandidates = [
     'h2 strong a',
     'h3 strong a',
+    'h4 strong a',
     'h2 a[role="link"]',
     'h3 a[role="link"]',
+    'h4 a[role="link"]',
     'h2 a',
     'h3 a',
+    'h4 a',
+    'h2 span a',
+    'h3 span a',
+    'h4 span a',
     'strong a',
     'a[role="link"] strong',
     'strong span'
@@ -59,7 +94,10 @@ function extractPostUrl(el) {
   const linkSelectors = [
     'a[href*="/posts/"]',
     'a[href*="/permalink/"]',
+    'a[href*="permalink.php"]',
+    'a[href*="story_fbid="]',
     'a[href*="multi_permalinks="]',
+    'a[href*="fbid="]',
     'a[href*="/groups/"]'
   ];
 
@@ -132,6 +170,11 @@ export function extractPostData(element) {
     return null;
   }
 
+  // Skip sponsored advertising posts (crucial on News Feed)
+  if (isSponsoredPost(element)) {
+    return null;
+  }
+
   const text = extractPostText(element);
   if (!text || text.length < 10) {
     return null;
@@ -142,7 +185,13 @@ export function extractPostData(element) {
 
   // Try to find native post ID from URL
   let id = '';
-  const postMatch = url.match(/\/posts\/(\d+)/) || url.match(/\/permalink\/(\d+)/) || url.match(/multi_permalinks=(\d+)/);
+  const postMatch =
+    url.match(/\/posts\/(\d+)/) ||
+    url.match(/\/permalink\/(\d+)/) ||
+    url.match(/multi_permalinks=(\d+)/) ||
+    url.match(/story_fbid=(\d+)/) ||
+    url.match(/fbid=(\d+)/);
+
   if (postMatch && postMatch[1]) {
     id = `fb_${postMatch[1]}`;
   } else {

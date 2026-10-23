@@ -19,4 +19,18 @@ describe('Config Helper & Validation', () => {
     assert.ok(valid.minCommentDelaySec >= 30, 'minCommentDelaySec must be clamped to safe minimum');
     assert.ok(valid.maxCommentDelaySec >= valid.minCommentDelaySec, 'max must be >= min');
   });
+
+  it('should validate and normalize scanScope correctly', () => {
+    const cfg1 = validateConfig({ scanScope: 'feed_only' });
+    assert.equal(cfg1.scanScope, 'feed_only');
+
+    const cfg2 = validateConfig({ scanScope: 'groups_only' });
+    assert.equal(cfg2.scanScope, 'groups_only');
+
+    const cfg3 = validateConfig({ scanScope: 'invalid_scope' });
+    assert.equal(cfg3.scanScope, 'all');
+
+    const cfg4 = validateConfig({});
+    assert.equal(cfg4.scanScope, 'all');
+  });
 });

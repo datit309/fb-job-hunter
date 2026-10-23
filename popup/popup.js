@@ -35,6 +35,7 @@ async function initPopup() {
   const statCommented = document.getElementById('stat-commented');
   
   const autoScrollToggle = document.getElementById('auto-scroll-toggle');
+  const scanScope = document.getElementById('scan-scope');
   const scanInterval = document.getElementById('scan-interval');
   const recentList = document.getElementById('recent-list');
   const recentCount = document.getElementById('recent-count');
@@ -171,6 +172,7 @@ async function initPopup() {
     }
 
     if (autoScrollToggle) autoScrollToggle.checked = Boolean(cfg.autoScroll);
+    if (scanScope) scanScope.value = cfg.scanScope || 'all';
     if (scanInterval) scanInterval.value = String(cfg.scanIntervalMs || 5000);
 
     if (whitelistInput) whitelistInput.value = (cfg.whitelistKeywords || []).join(', ');
@@ -295,6 +297,7 @@ async function initPopup() {
         ...stored,
         enabled: masterToggle ? masterToggle.checked : true,
         autoScroll: autoScrollToggle ? autoScrollToggle.checked : true,
+        scanScope: scanScope?.value || 'all',
         scanIntervalMs: Number(scanInterval?.value) || 5000,
         whitelistKeywords: formatKeywordsInput(whitelistInput?.value || ''),
         blacklistKeywords: formatKeywordsInput(blacklistInput?.value || ''),

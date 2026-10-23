@@ -85,18 +85,70 @@
     return null;
   }
 
+  function isSupportedFacebookPage(cfg = config) {
+    const path = window.location.pathname;
+
+    // Exclude system, chat, or settings pages
+    if (
+      path.startsWith('/messages') ||
+      path.startsWith('/notifications') ||
+      path.startsWith('/settings') ||
+      path.startsWith('/saved') ||
+      path.startsWith('/marketplace') ||
+      path.startsWith('/gaming') ||
+      path.startsWith('/login') ||
+      path.startsWith('/recover')
+    ) {
+      return false;
+    }
+
+    const scope = cfg.scanScope || 'all'; // 'all' | 'feed_only' | 'groups_only'
+    const isGroup = path.includes('/groups/');
+    const isFeed =
+      path === '/' ||
+      path === '' ||
+      path === '/home.php' ||
+      path.startsWith('/feed') ||
+      window.location.search.includes('sk=h_chr') ||
+      window.location.search.includes('filter=all');
+
+    if (scope === 'groups_only') {
+      return isGroup;
+    }
+    if (scope === 'feed_only') {
+      return isFeed;
+    }
+
+    // Default 'all': valid on Group, News Feed, or any page containing post articles/feed
+    return isGroup || isFeed || Boolean(document.querySelector('[role="feed"], [role="article"]'));
+  }
+
+  function getPageLocationHint() {
+    const path = window.location.pathname;
+    if (path.includes('/groups/')) return 'NHÓM';
+    if (path === '/' || path === '' || path === '/home.php' || path.startsWith('/feed')) return 'BẢNG TIN';
+    return 'FACEBOOK';
+  }
+
   // Main Scanning & Commenting Loop
   async function runScanCycle() {
     if (!config.enabled || isProcessing) return;
 
-    // Only run on group pages or feed
-    if (!window.location.pathname.includes('/groups/') && !window.location.pathname.includes('/feed')) {
-      updateWidgetStatus('VÀO GROUP ĐỂ QUÉT', 'idle');
+    if (!isSupportedFacebookPage(config)) {
+      const scope = config.scanScope || 'all';
+      if (scope === 'groups_only') {
+        updateWidgetStatus('VÀO GROUP ĐỂ QUÉT', 'idle');
+      } else if (scope === 'feed_only') {
+        updateWidgetStatus('VÀO BẢNG TIN ĐỂ QUÉT', 'idle');
+      } else {
+        updateWidgetStatus('MỞ BẢNG TIN / GROUP', 'idle');
+      }
       return;
     }
 
     isProcessing = true;
-    updateWidgetStatus('ĐANG LẮNG NGHE BÀI...', 'scanning');
+    const locHint = getPageLocationHint();
+    updateWidgetStatus(`${locHint}: ĐANG LẮNG NGHE...`, 'scanning');
 
     try {
       // Check current commenting identity (Page vs User)
@@ -195,7 +247,8 @@
         }
       }
 
-      updateWidgetStatus(config.enabled ? 'ĐANG LẮNG NGHE' : 'TẠM DỪNG', config.enabled ? 'active' : 'idle');
+      const locHint = getPageLocationHint();
+      updateWidgetStatus(config.enabled ? `${locHint}: ĐANG LẮNG NGHE` : 'TẠM DỪNG', config.enabled ? 'active' : 'idle');
     } catch (err) {
       console.error('[FB Job Hunter] Lỗi chu kỳ quét:', err);
     } finally {
@@ -246,17 +299,25 @@
     }
   });
 
-  // Tự động nhận diện khi chuyển tab bên trong nhóm Facebook (Discussion, Featured, v.v.)
+  // Tự động nhận diện khi chuyển trang Facebook (Bảng tin, Nhóm, Tab)
   let lastUrl = window.location.href;
   setInterval(() => {
     if (window.location.href !== lastUrl) {
       lastUrl = window.location.href;
       console.log('[FB Job Hunter] Chuyển tab/trang Facebook:', lastUrl);
-      if (window.location.pathname.includes('/groups/') || window.location.pathname.includes('/feed')) {
-        updateWidgetStatus(config.enabled ? 'ĐANG LẮNG NGHE' : 'TẠM DỪNG', config.enabled ? 'active' : 'idle');
+      if (isSupportedFacebookPage(config)) {
+        const locHint = getPageLocationHint();
+        updateWidgetStatus(config.enabled ? `${locHint}: ĐANG LẮNG NGHE` : 'TẠM DỪNG', config.enabled ? 'active' : 'idle');
         setTimeout(runScanCycle, 1500);
       } else {
-        updateWidgetStatus('VÀO GROUP ĐỂ QUÉT', 'idle');
+        const scope = config.scanScope || 'all';
+        if (scope === 'groups_only') {
+          updateWidgetStatus('VÀO GROUP ĐỂ QUÉT', 'idle');
+        } else if (scope === 'feed_only') {
+          updateWidgetStatus('VÀO BẢNG TIN ĐỂ QUÉT', 'idle');
+        } else {
+          updateWidgetStatus('MỞ BẢNG TIN / GROUP', 'idle');
+        }
       }
     }
   }, 1000);
