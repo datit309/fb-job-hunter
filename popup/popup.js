@@ -100,6 +100,9 @@ async function initPopup() {
   const btnGenerateCampaign = document.getElementById('btn-generate-campaign');
   const campaignGenerateStatus = document.getElementById('campaign-generate-status');
   const campaignCountBadge = document.getElementById('campaign-count-badge');
+  const postTargetType = document.getElementById('post-target-type');
+  const customPostUrlContainer = document.getElementById('custom-post-url-container');
+  const customPostUrl = document.getElementById('custom-post-url');
   const btnOpenMetaPlanner = document.getElementById('btn-open-meta-planner');
   const btnExportCampaignCsv = document.getElementById('btn-export-campaign-csv');
   const btnClearCampaign = document.getElementById('btn-clear-campaign');
@@ -362,6 +365,14 @@ async function initPopup() {
         customTopicGroup.style.display = fanpageTopicSelect.value === 'custom' ? 'block' : 'none';
       }
     }
+
+    if (postTargetType) {
+      postTargetType.value = cfg.plannerConfig?.targetType || 'planner';
+      if (customPostUrlContainer) {
+        customPostUrlContainer.style.display = postTargetType.value === 'custom' ? 'block' : 'none';
+      }
+    }
+    if (customPostUrl) customPostUrl.value = cfg.plannerConfig?.customUrl || '';
 
     renderHistory(cfg.history || []);
   }
@@ -654,10 +665,35 @@ async function initPopup() {
     });
   }
 
-  // Open Meta Business Suite Planner
+  // Toggle custom post URL input
+  if (postTargetType) {
+    postTargetType.addEventListener('change', () => {
+      if (customPostUrlContainer) {
+        customPostUrlContainer.style.display = postTargetType.value === 'custom' ? 'block' : 'none';
+      }
+    });
+  }
+
+  // Open Meta Business Suite Planner / Composer / Fanpage
   if (btnOpenMetaPlanner) {
     btnOpenMetaPlanner.addEventListener('click', () => {
-      const url = 'https://business.facebook.com/latest/composer?ref=mini_planner';
+      const targetType = postTargetType ? postTargetType.value : 'planner';
+      let url = 'https://business.facebook.com/latest/posts/planner';
+
+      if (targetType === 'composer') {
+        url = 'https://business.facebook.com/latest/composer';
+      } else if (targetType === 'page') {
+        const pageId = (fanpageIdInput?.value || '').trim();
+        url = pageId ? `https://www.facebook.com/${encodeURIComponent(pageId)}` : 'https://www.facebook.com/pages';
+      } else if (targetType === 'custom') {
+        const customUrl = (customPostUrl?.value || '').trim();
+        if (customUrl) {
+          url = customUrl.startsWith('http://') || customUrl.startsWith('https://')
+            ? customUrl
+            : `https://${customUrl}`;
+        }
+      }
+
       if (typeof chrome !== 'undefined' && chrome.tabs?.create) {
         chrome.tabs.create({ url });
       } else {
@@ -796,6 +832,10 @@ async function initPopup() {
           pageId: (fanpageIdInput?.value || '').trim(),
           pageToken: (fanpageTokenInput?.value || '').trim(),
           defaultTopic: fanpageTopicSelect?.value || 'general'
+        },
+        plannerConfig: {
+          targetType: postTargetType?.value || 'planner',
+          customUrl: (customPostUrl?.value || '').trim()
         }
       };
 

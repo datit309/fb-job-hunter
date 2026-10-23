@@ -45,7 +45,7 @@ describe('Meta Graph API Page Publisher', () => {
 
       assert.equal(result.success, true);
       assert.equal(result.postId, '123456789_987654321');
-      assert.ok(result.postUrl.includes('facebook.com/123456789_987654321'));
+      assert.ok(result.postUrl.includes('facebook.com/123456789/posts/987654321'));
     });
 
     it('should throw informative error if Graph API returns an error response', async () => {

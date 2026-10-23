@@ -40,7 +40,8 @@
         "*://*.facebook.com/*"
       ],
       "exclude_matches": [
-        "*://business.facebook.com/*"
+        "*://business.facebook.com/*",
+        "*://*.facebook.com/latest/*"
       ],
       "js": [
         "content/content.js"
@@ -52,7 +53,8 @@
     },
     {
       "matches": [
-        "*://business.facebook.com/*"
+        "*://business.facebook.com/*",
+        "*://*.facebook.com/latest/*"
       ],
       "js": [
         "content/business-suite-helper.js"

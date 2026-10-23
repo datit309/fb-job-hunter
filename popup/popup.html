@@ -252,9 +252,26 @@
               <span id="campaign-count-badge" class="badge">0 bài</span>
             </div>
 
+            <!-- Destination selector & buttons -->
+            <div class="form-group" style="margin-bottom: 10px;">
+              <label>Đích đến mở đăng bài:</label>
+              <select id="post-target-type" class="form-select">
+                <option value="planner" selected>📅 Lịch Meta Planner (business.facebook.com/latest/posts/planner)</option>
+                <option value="composer">✍️ Trình tạo bài viết Meta Composer (business.facebook.com/latest/composer)</option>
+                <option value="page">📄 Trang Fanpage trực tiếp trên Facebook (facebook.com/page-id)</option>
+                <option value="custom">🔗 Tự nhập Link đăng bài (Group / Page / Profile riêng)</option>
+              </select>
+            </div>
+
+            <div id="custom-post-url-container" class="form-group" style="display: none; margin-bottom: 10px;">
+              <label>Nhập URL trang đăng bài tùy chọn:</label>
+              <input type="url" id="custom-post-url" class="form-input" placeholder="https://www.facebook.com/your-fanpage hoặc link group...">
+              <span class="field-hint">Tiện ích sẽ mở tab tới trang này và hỗ trợ nội dung bài viết đã soạn.</span>
+            </div>
+
             <div style="display: flex; gap: 8px; margin-bottom: 12px; flex-wrap: wrap;">
               <button type="button" id="btn-open-meta-planner" class="btn btn-success btn-block" style="font-weight: 600;">
-                🌐 Mở Meta Business Suite Planner
+                🚀 Mở trang đăng bài đã chọn
               </button>
             </div>
 

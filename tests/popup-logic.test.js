@@ -100,5 +100,23 @@ describe('Config Helper & Validation', () => {
     assert.equal(empty.aiConfig.customEndpoint, '');
     assert.equal(empty.aiConfig.customModel, '');
   });
+
+  it('should validate and sanitize plannerConfig correctly', () => {
+    const valid = validateConfig({
+      plannerConfig: {
+        targetType: 'composer',
+        customUrl: '  https://www.facebook.com/my-page  '
+      }
+    });
+    assert.equal(valid.plannerConfig.targetType, 'composer');
+    assert.equal(valid.plannerConfig.customUrl, 'https://www.facebook.com/my-page');
+
+    const fallback = validateConfig({
+      plannerConfig: {
+        targetType: 'invalid_type'
+      }
+    });
+    assert.equal(fallback.plannerConfig.targetType, 'planner');
+  });
 });
 
