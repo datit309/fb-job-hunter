@@ -52,4 +52,26 @@ describe('Config Helper & Validation', () => {
     assert.equal(empty.fanpageConfig.pageId, '');
     assert.equal(empty.fanpageConfig.pageToken, '');
   });
+
+  it('should validate and sanitize campaignConfig correctly', () => {
+    const valid = validateConfig({
+      campaignConfig: {
+        postsCount: 14,
+        defaultContact: '  0987654321  ',
+        defaultHighlights: '  Next.js, Flutter  '
+      }
+    });
+
+    assert.equal(valid.campaignConfig.postsCount, 14);
+    assert.equal(valid.campaignConfig.defaultContact, '0987654321');
+    assert.equal(valid.campaignConfig.defaultHighlights, 'Next.js, Flutter');
+
+    const clamped = validateConfig({
+      campaignConfig: {
+        postsCount: 999
+      }
+    });
+    assert.equal(clamped.campaignConfig.postsCount, 30);
+  });
 });
+

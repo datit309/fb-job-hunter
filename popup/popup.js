@@ -3,6 +3,11 @@ import { formatKeywordsInput, validateConfig } from '../lib/config-helper.js';
 import { sendTelegramMessage, formatTestMessage } from '../lib/telegram.js';
 import { publishToPage, verifyPageToken } from '../lib/page-publisher.js';
 import { generateFanpagePost } from '../lib/ai-post-writer.js';
+import {
+  generateBulkCampaignPosts,
+  exportCampaignToCsv,
+  updateCampaignPostStatus
+} from '../lib/business-suite-planner.js';
 
 // Safe storage access helper
 async function getStoredConfig() {
@@ -82,6 +87,119 @@ async function initPopup() {
   const fanpagePostLink = document.getElementById('fanpage-post-link');
   const btnPublishFanpagePost = document.getElementById('btn-publish-fanpage-post');
   const fanpagePublishResult = document.getElementById('fanpage-publish-result');
+
+  // Meta Business Suite Planner elements
+  const subtabBtns = document.querySelectorAll('.subtab-btn');
+  const subpanes = document.querySelectorAll('.subpane');
+  const campaignPostsCount = document.getElementById('campaign-posts-count');
+  const campaignHighlights = document.getElementById('campaign-highlights');
+  const campaignContact = document.getElementById('campaign-contact');
+  const btnGenerateCampaign = document.getElementById('btn-generate-campaign');
+  const campaignGenerateStatus = document.getElementById('campaign-generate-status');
+  const campaignCountBadge = document.getElementById('campaign-count-badge');
+  const btnOpenMetaPlanner = document.getElementById('btn-open-meta-planner');
+  const btnExportCampaignCsv = document.getElementById('btn-export-campaign-csv');
+  const btnClearCampaign = document.getElementById('btn-clear-campaign');
+  const campaignPostsList = document.getElementById('campaign-posts-list');
+
+  let currentCampaignPosts = [];
+
+  // Helper to load campaign posts
+  async function loadCampaignPosts() {
+    if (typeof chrome !== 'undefined' && chrome.storage?.local) {
+      try {
+        const res = await chrome.storage.local.get('campaign_posts');
+        currentCampaignPosts = Array.isArray(res.campaign_posts) ? res.campaign_posts : [];
+      } catch (e) {
+        currentCampaignPosts = [];
+      }
+    }
+    renderCampaignList(currentCampaignPosts);
+  }
+
+  // Render campaign posts
+  function renderCampaignList(posts = []) {
+    if (campaignCountBadge) {
+      const scheduledCount = posts.filter((p) => p.status === 'scheduled').length;
+      campaignCountBadge.textContent = `${scheduledCount}/${posts.length} bài xong`;
+    }
+
+    if (!campaignPostsList) return;
+
+    if (posts.length === 0) {
+      campaignPostsList.innerHTML = `
+        <div class="empty-state">
+          Chưa có bài đăng nào trong chiến dịch.<br>Hãy bấm <strong>"✨ AI Tạo chiến dịch bài đăng"</strong> ở trên!
+        </div>
+      `;
+      return;
+    }
+
+    campaignPostsList.innerHTML = posts.map((post, idx) => {
+      const isDone = post.status === 'scheduled';
+      const badgeClass = isDone ? 'scheduled' : 'pending';
+      const badgeText = isDone ? 'Đã lên lịch' : 'Chờ lên lịch';
+
+      return `
+        <div class="campaign-post-item" data-id="${post.id}">
+          <div class="campaign-post-header">
+            <span class="campaign-post-slot">#${idx + 1} — 📅 ${post.scheduledDate} ⏰ ${post.scheduledTime}</span>
+            <span class="campaign-badge ${badgeClass}">${badgeText}</span>
+          </div>
+          <div class="campaign-post-title">${escapeHtml(post.title || 'Bài quảng bá')}</div>
+          <div class="campaign-post-snippet">${escapeHtml(post.content || '')}</div>
+          <div class="campaign-post-actions">
+            <button type="button" class="btn btn-secondary btn-copy-post" data-id="${post.id}">📋 Copy</button>
+            <button type="button" class="btn ${isDone ? 'btn-secondary' : 'btn-success'} btn-toggle-status" data-id="${post.id}">
+              ${isDone ? '↩️ Đặt lại chờ' : '✅ Đã lên lịch'}
+            </button>
+            <button type="button" class="btn btn-danger-outline btn-delete-post" data-id="${post.id}">🗑️</button>
+          </div>
+        </div>
+      `;
+    }).join('');
+
+    // Attach row events
+    campaignPostsList.querySelectorAll('.btn-copy-post').forEach((btn) => {
+      btn.addEventListener('click', () => {
+        const id = btn.getAttribute('data-id');
+        const p = currentCampaignPosts.find((item) => item.id === id);
+        if (p) {
+          navigator.clipboard.writeText(p.content);
+          btn.textContent = 'Đã copy!';
+          setTimeout(() => {
+            btn.textContent = '📋 Copy';
+          }, 1500);
+        }
+      });
+    });
+
+    campaignPostsList.querySelectorAll('.btn-toggle-status').forEach((btn) => {
+      btn.addEventListener('click', async () => {
+        const id = btn.getAttribute('data-id');
+        const p = currentCampaignPosts.find((item) => item.id === id);
+        if (p) {
+          const nextStatus = p.status === 'scheduled' ? 'pending' : 'scheduled';
+          currentCampaignPosts = updateCampaignPostStatus(currentCampaignPosts, id, nextStatus);
+          if (typeof chrome !== 'undefined' && chrome.storage?.local) {
+            await chrome.storage.local.set({ campaign_posts: currentCampaignPosts });
+          }
+          renderCampaignList(currentCampaignPosts);
+        }
+      });
+    });
+
+    campaignPostsList.querySelectorAll('.btn-delete-post').forEach((btn) => {
+      btn.addEventListener('click', async () => {
+        const id = btn.getAttribute('data-id');
+        currentCampaignPosts = currentCampaignPosts.filter((item) => item.id !== id);
+        if (typeof chrome !== 'undefined' && chrome.storage?.local) {
+          await chrome.storage.local.set({ campaign_posts: currentCampaignPosts });
+        }
+        renderCampaignList(currentCampaignPosts);
+      });
+    });
+  }
 
   const historyContainer = document.getElementById('history-container');
   const btnClearHistory = document.getElementById('btn-clear-history');
@@ -452,6 +570,114 @@ async function initPopup() {
     });
   }
 
+  // Subtab navigation in tab-fanpage
+  subtabBtns.forEach((btn) => {
+    btn.addEventListener('click', () => {
+      subtabBtns.forEach((b) => b.classList.remove('active'));
+      subpanes.forEach((p) => p.classList.remove('active'));
+      btn.classList.add('active');
+      const target = btn.getAttribute('data-subpane');
+      const pane = document.getElementById(target);
+      if (pane) pane.classList.add('active');
+    });
+  });
+
+  // Generate Bulk Campaign Posts
+  if (btnGenerateCampaign) {
+    btnGenerateCampaign.addEventListener('click', async () => {
+      btnGenerateCampaign.disabled = true;
+      if (campaignGenerateStatus) {
+        campaignGenerateStatus.textContent = '⏳ Đang lên lịch & soạn chiến dịch bài viết...';
+        campaignGenerateStatus.style.color = '#38bdf8';
+      }
+
+      const count = Number(campaignPostsCount?.value) || 7;
+      const serviceHighlights = (campaignHighlights?.value || '').trim();
+      const contactInfo = (campaignContact?.value || '').trim();
+
+      const aiCfg = {
+        apiKey: (aiApiKey?.value || '').trim(),
+        provider: aiProvider?.value || 'deepseek',
+        model: aiProvider?.value === 'deepseek' ? 'deepseek-chat' : 'gpt-4o-mini'
+      };
+
+      try {
+        const posts = await generateBulkCampaignPosts({
+          count,
+          serviceHighlights,
+          contactInfo,
+          config: aiCfg
+        });
+
+        currentCampaignPosts = posts;
+        if (typeof chrome !== 'undefined' && chrome.storage?.local) {
+          await chrome.storage.local.set({ campaign_posts: posts });
+        }
+        renderCampaignList(currentCampaignPosts);
+
+        if (campaignGenerateStatus) {
+          campaignGenerateStatus.textContent = `✨ Đã tạo thành công chiến dịch ${posts.length} bài đăng!`;
+          campaignGenerateStatus.style.color = '#10b981';
+        }
+      } catch (err) {
+        if (campaignGenerateStatus) {
+          campaignGenerateStatus.textContent = `❌ Lỗi: ${err.message}`;
+          campaignGenerateStatus.style.color = '#ef4444';
+        }
+      } finally {
+        btnGenerateCampaign.disabled = false;
+      }
+    });
+  }
+
+  // Open Meta Business Suite Planner
+  if (btnOpenMetaPlanner) {
+    btnOpenMetaPlanner.addEventListener('click', () => {
+      const url = 'https://business.facebook.com/latest/composer?ref=mini_planner';
+      if (typeof chrome !== 'undefined' && chrome.tabs?.create) {
+        chrome.tabs.create({ url });
+      } else {
+        window.open(url, '_blank');
+      }
+    });
+  }
+
+  // Export Campaign to CSV
+  if (btnExportCampaignCsv) {
+    btnExportCampaignCsv.addEventListener('click', () => {
+      if (currentCampaignPosts.length === 0) {
+        alert('Chưa có bài đăng nào trong chiến dịch để xuất CSV!');
+        return;
+      }
+      const csvContent = exportCampaignToCsv(currentCampaignPosts);
+      const blob = new Blob(['\uFEFF' + csvContent], { type: 'text/csv;charset=utf-8;' });
+      const url = URL.createObjectURL(blob);
+      const link = document.createElement('a');
+      link.setAttribute('href', url);
+      link.setAttribute('download', `meta-planner-campaign-${Date.now()}.csv`);
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+      URL.revokeObjectURL(url);
+    });
+  }
+
+  // Clear Campaign
+  if (btnClearCampaign) {
+    btnClearCampaign.addEventListener('click', async () => {
+      if (confirm('Bạn có chắc chắn muốn xóa toàn bộ chiến dịch bài đăng hiện tại không?')) {
+        currentCampaignPosts = [];
+        if (typeof chrome !== 'undefined' && chrome.storage?.local) {
+          await chrome.storage.local.set({ campaign_posts: [] });
+        }
+        renderCampaignList([]);
+        if (campaignGenerateStatus) {
+          campaignGenerateStatus.textContent = '';
+        }
+      }
+    });
+  }
+
   // Render History List
   function renderHistory(history = []) {
     const today = new Date().toDateString();
@@ -572,6 +798,7 @@ async function initPopup() {
   }
 
   populateUI(stored);
+  loadCampaignPosts();
 }
 
 // Immediate execution if DOM is already ready, or listen to DOMContentLoaded

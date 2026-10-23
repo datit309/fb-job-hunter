@@ -36,11 +36,26 @@
         "*://*.facebook.com/groups/*",
         "*://*.facebook.com/*"
       ],
+      "exclude_matches": [
+        "*://business.facebook.com/*"
+      ],
       "js": [
         "content/content.js"
       ],
       "css": [
         "content/floating-widget.css"
+      ],
+      "run_at": "document_idle"
+    },
+    {
+      "matches": [
+        "*://business.facebook.com/*"
+      ],
+      "js": [
+        "content/business-suite-helper.js"
+      ],
+      "css": [
+        "content/business-suite-helper.css"
       ],
       "run_at": "document_idle"
     }

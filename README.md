@@ -80,13 +80,25 @@ Nếu muốn câu trả lời được AI viết riêng cho từng bài:
 - Tùy chỉnh chỉ dẫn thêm (Prompt): Ví dụ *"Nhấn mạnh mình có 5 năm kinh nghiệm, làm việc đúng hẹn, có thể xuất hóa đơn VAT"*.
 
 ### 4. Đăng Bài Lên Fanpage (Tab "Đăng Page")
-Tính năng giúp bạn phủ sóng thương hiệu và thu hút khách hàng tiềm năng:
+Tính năng giúp bạn phủ sóng thương hiệu dịch vụ phần mềm và thu hút khách hàng tiềm năng với 2 chế độ linh hoạt:
+
+#### 🔹 Chế độ 1: 📅 Meta Business Suite Planner (Lên lịch hàng loạt — 100% Không cần Token ⭐)
+- **Không cần tạo App hay lấy Access Token**: Dùng trực tiếp phiên đăng nhập Facebook chính thức của bạn trên `business.facebook.com`.
+- **Tự động lên lịch 7 ngày**: Bấm **"✨ AI Tạo chiến dịch bài đăng"**, AI sẽ tự động soạn 7 bài viết với 7 chủ đề khác nhau (Web, Tool Automation, Mobile App, Outsource...) và tự động chia vào các khung giờ vàng có lượt tương tác cao nhất (`08:30`, `11:45`, `19:30`).
+- **Trợ lý thông minh trong trang Meta**:
+  - Bấm **"🌐 Mở Meta Business Suite Planner"**, trang tạo bài của Facebook sẽ mở ra.
+  - Một thanh tiện ích nổi của extension sẽ xuất hiện ở góc phải màn hình.
+  - Bấm **"🚀 Điền vào Composer & Copy"**, nội dung bài viết và hashtag sẽ tự động được gõ vào ô đăng bài.
+  - Bạn chỉ cần chọn lịch hẹn giờ và bấm lưu, sau đó bấm **"✅ Đã lên lịch xong"** để chuyển sang bài tiếp theo!
+- **Hỗ trợ xuất CSV**: Có nút **"📥 Tải file CSV"** để lưu trữ kế hoạch nội dung.
+
+#### 🔹 Chế độ 2: 🔑 Meta Graph API (Đăng bài tức thì qua Token)
 - **Page ID**: Nhập ID Trang Fanpage của bạn.
 - **Page Access Token**: Nhập Access Token được cấp từ Meta for Developers (có quyền `pages_manage_posts`).
 - Bấm **"🔍 Kiểm tra quyền Page"** để kiểm tra tính hợp lệ của token ngay lập tức.
 - Chọn chủ đề bài đăng: *Web, Tool tự động hóa, Mobile App, hoặc Tự nhập theo ý thích*.
 - Bấm **"🤖 AI Soạn bài viết ngay"**: AI sẽ tự động tạo bài viết hoàn chỉnh với tiêu đề lôi cuốn, giải pháp công nghệ, cam kết và hashtag.
-- Xem lại nội dung và bấm **"🚀 Đăng lên Fanpage ngay"**: Bài viết sẽ được xuất bản trực tiếp lên Page!
+- Xem lại nội dung và bấm **"🚀 Đăng lên Fanpage ngay"**: Bài viết sẽ được xuất bản trực tiếp lên Page qua API v19.0!
 
 ### 5. Cấu Hình An Toàn & Telegram (Tab "An toàn")
 - **Thời gian nghỉ ngẫu nhiên**: Để mặc định `60` - `180` giây.
@@ -122,12 +134,15 @@ fb-job-hunter/
 │   ├── commenter.js           # Tự động gõ phím kiểu người thật và gửi comment
 │   ├── safety.js              # Quản lý cooldown, giới hạn ngày và tránh trùng bài
 │   ├── floating-widget.js     # Widget nổi trực tiếp trên trang web (Shadow DOM)
-│   └── floating-widget.css    # Stylesheets cho floating widget
+│   ├── floating-widget.css    # Stylesheets cho floating widget
+│   ├── business-suite-helper.js   # Trợ lý tự động lên lịch trên Meta Business Suite
+│   └── business-suite-helper.css  # Giao diện trợ lý Meta Business Suite
 ├── lib/
 │   ├── filter-engine.js       # Bộ lọc từ khóa có dấu / không dấu & tính điểm
 │   ├── spintax.js             # Parser xoay từ spintax đa tầng {A|B|C}
 │   ├── ai-matcher.js          # Tích hợp API DeepSeek / OpenAI sinh pitch
 │   ├── ai-post-writer.js      # Trình tạo bài đăng truyền thông bằng AI / mẫu
+│   ├── business-suite-planner.js # Lập lịch chiến dịch & xuất CSV cho Meta Planner
 │   ├── page-publisher.js      # Module đăng bài lên Fanpage qua Meta Graph API
 │   ├── telegram.js            # Module gửi thông báo Telegram
 │   └── config-helper.js       # Xử lý và kiểm tra dữ liệu cấu hình
@@ -135,11 +150,12 @@ fb-job-hunter/
 │   ├── popup.html             # Giao diện bảng điều khiển chính
 │   ├── popup.css              # Giao diện Dark theme chuẩn SaaS
 │   └── popup.js               # Logic điều khiển, lưu trữ và hiển thị thống kê
-└── tests/                     # 60 unit & E2E tests tự động
+└── tests/                     # 66 unit & E2E tests tự động
     ├── spintax.test.js
     ├── filter-engine.test.js
     ├── ai-matcher.test.js
     ├── ai-post-writer.test.js
+    ├── business-suite-planner.test.js
     ├── page-publisher.test.js
     ├── telegram.test.js
     ├── dom-scanner.test.js
@@ -160,4 +176,4 @@ cd fb-job-hunter
 npm test
 ```
 
-Toàn bộ 60 test case bao gồm parser, filter, scanner, safety, Graph API publisher, AI post writer, Telegram, UI logic và kịch bản E2E sẽ được chạy tự động.
+Toàn bộ 66 test case bao gồm parser, filter, scanner, safety, Graph API publisher, AI post writer, Business Suite Planner, Telegram, UI logic và kịch bản E2E sẽ được chạy tự động.
