@@ -139,20 +139,29 @@ export function expandTruncatedText(el) {
 function extractPostText(el) {
   expandTruncatedText(el);
 
-  // High priority selector
-  const previewMsg = el.querySelector ? el.querySelector('[data-ad-preview="message"]') : null;
+  // High priority selector: Facebook Comet post body
+  const previewMsg = el.querySelector ? (
+    el.querySelector('[data-ad-comet-preview="message"]') ||
+    el.querySelector('[data-ad-preview="message"]')
+  ) : null;
   if (previewMsg && previewMsg.textContent && previewMsg.textContent.trim().length > 5) {
     return previewMsg.textContent.trim();
   }
 
-  // Look for text container with dir="auto"
-  const textContainers = el.querySelectorAll ? el.querySelectorAll('div[dir="auto"]') : [];
+  // Look for text container with dir="auto" (div, span, or p)
+  const textContainers = el.querySelectorAll ? el.querySelectorAll('div[dir="auto"], span[dir="auto"], p[dir="auto"]') : [];
   let longestText = '';
 
   for (const container of textContainers) {
     const text = container.textContent ? container.textContent.trim() : '';
-    // Avoid small metadata like "10 bình luận", "Thích", "Chia sẻ"
-    if (text.length > longestText.length && !text.startsWith('Thích') && !text.startsWith('Bình luận')) {
+    // Avoid small metadata like "10 bình luận", "Thích", "Chia sẻ", " người khác"
+    if (
+      text.length > longestText.length &&
+      !text.startsWith('Thích') &&
+      !text.startsWith('Bình luận') &&
+      !text.startsWith('Chia sẻ') &&
+      !text.includes(' người khác')
+    ) {
       longestText = text;
     }
   }
@@ -221,7 +230,8 @@ export function scanFeed(root = document) {
     '[role="feed"] > div',
     '[role="article"]',
     'div[data-pagelet^="FeedUnit"]',
-    'div.x1yztbdb'
+    'div.x1yztbdb',
+    'div[data-virtualized="false"]'
   ];
 
   const foundElements = new Set();

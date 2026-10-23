@@ -15,9 +15,61 @@
   const { postCommentOnFacebook } = await import(chrome.runtime.getURL('content/commenter.js'));
   const { initFloatingWidget, updateWidgetStatus, addWidgetJobLog, updateWidgetIdentity } = await import(chrome.runtime.getURL('content/floating-widget.js'));
 
-  // Load configuration
-  let config = (await chrome.storage.local.get('config'))?.config || {};
-  if (config.autoScroll === undefined) config.autoScroll = true; // Auto listen enabled by default
+  const DEFAULT_FALLBACK_CONFIG = {
+    enabled: true,
+    autoScroll: true,
+    scanScope: 'all',
+    scanIntervalMs: 4000,
+    dailyCommentLimit: 30,
+    minCommentDelaySec: 60,
+    maxCommentDelaySec: 180,
+    isCompanyPage: true,
+    whitelistKeywords: [
+      'tìm dev',
+      'cần dev',
+      'outsource',
+      'freelance',
+      'viết tool',
+      'làm web',
+      'làm app',
+      'flutter',
+      'react',
+      'nodejs',
+      'python',
+      'backend',
+      'fullstack',
+      'nhận dự án',
+      'cào dữ liệu',
+      'viết bot'
+    ],
+    blacklistKeywords: [
+      'tuyển sinh',
+      'khóa học',
+      'bán acc',
+      'tuyển dụng sale',
+      'fulltime tại',
+      'onsite',
+      'yêu cầu lên công ty',
+      'đa cấp',
+      'tuyển mẫu',
+      'cho thuê'
+    ],
+    spintaxTemplates: [
+      '{Dạ chào bạn|Chào bạn|Chào anh/chị}, bài toán {này|kỹ thuật này|dự án này} team bên em đã từng triển khai sản phẩm thực tế tương tự. Nếu bạn cần tham khảo thêm về giải pháp kiến trúc hoặc demo, có thể ghé qua Page bên em nhé ạ.',
+      '{Chào bạn|Dạ chào anh/chị}, bên mình là đơn vị chuyên phát triển {hệ thống phần mềm|web app|ứng dụng di động và tool tự động} theo yêu cầu. Rất mong có cơ hội được hỗ trợ và đồng hành cùng dự án của bạn.',
+      '{Chào bạn|Hi bạn}, mảng {này|công nghệ này} bên mình có sẵn đội ngũ kỹ thuật có thể tư vấn giải pháp tối ưu và triển khai nhanh chóng. Bạn cần thêm thông tin cứ kết nối với page bên mình nha.',
+      '{Dạ chào bạn|Chào anh/chị}, bên em chuyên nhận gia công và phát triển phần mềm chuẩn tiến độ, có thể hỗ trợ tư vấn kỹ thuật chi tiết. Chúc dự án của bạn sớm tìm được team ưng ý nhé ạ!'
+    ]
+  };
+
+  // Load configuration with robust fallbacks
+  const storedData = (await chrome.storage?.local?.get('config'))?.config;
+  let config = { ...DEFAULT_FALLBACK_CONFIG, ...(storedData || {}) };
+  if (!storedData) {
+    try {
+      await chrome.storage?.local?.set({ config });
+    } catch (e) {}
+  }
 
   const safety = new SafetyController({
     dailyLimit: config.dailyCommentLimit || 30,
@@ -38,7 +90,15 @@
       try {
         chrome.storage?.local?.set({ config: { ...config, enabled: newState } });
       } catch (e) {}
-      updateWidgetStatus(newState ? 'ĐANG LẮNG NGHE' : 'TẠM DỪNG', newState ? 'active' : 'idle');
+      const locHint = getPageLocationHint();
+      updateWidgetStatus(newState ? `${locHint}: ĐANG LẮNG NGHE` : 'TẠM DỪNG', newState ? 'active' : 'idle');
+      if (newState) {
+        runScanCycle(true);
+      }
+    },
+    onScanNow: () => {
+      console.log('[FB Job Hunter] 👉 Người dùng bấm Quét ngay trên widget');
+      runScanCycle(true);
     }
   });
 
@@ -131,8 +191,9 @@
   }
 
   // Main Scanning & Commenting Loop
-  async function runScanCycle() {
-    if (!config.enabled || isProcessing) return;
+  async function runScanCycle(force = false) {
+    if (!config.enabled && !force) return;
+    if (isProcessing) return;
 
     if (!isSupportedFacebookPage(config)) {
       const scope = config.scanScope || 'all';
@@ -148,7 +209,6 @@
 
     isProcessing = true;
     const locHint = getPageLocationHint();
-    updateWidgetStatus(`${locHint}: ĐANG LẮNG NGHE...`, 'scanning');
 
     try {
       // Check current commenting identity (Page vs User)
@@ -161,17 +221,27 @@
       checkAndClickNewPostsPill();
 
       const posts = scanFeed(document);
+      console.log(`[FB Job Hunter] (${locHint}) Đã quét thấy ${posts.length} bài viết.`);
+      updateWidgetStatus(`${locHint}: QUÉT ${posts.length} BÀI`, 'scanning');
 
+      let matchedCount = 0;
       for (const post of posts) {
-        if (!config.enabled) break;
+        if (!config.enabled && !force) break;
 
         // Evaluate filter rules
         const evalResult = evaluatePost(post.postText, config);
         if (!evalResult.matched) continue;
 
+        matchedCount++;
+        console.log(`[FB Job Hunter] 🎯 PHÁT HIỆN BÀI KHỚP của "${post.authorName}" (Điểm: ${evalResult.score}): [${evalResult.matchedWhitelist.join(', ')}]`);
+
         // Check safety / duplicate / cooldown
         const safetyCheck = safety.canComment(post.id);
-        if (!safetyCheck.allowed) continue;
+        if (!safetyCheck.allowed) {
+          console.log(`[FB Job Hunter] ⏳ Chưa thể bình luận bài "${post.id}": ${safetyCheck.reason}`);
+          updateWidgetStatus(`CHỜ: ${safetyCheck.reason.slice(0, 18)}`, 'idle');
+          continue;
+        }
 
         // Generate Comment text (AI or Spintax)
         updateWidgetStatus(`PHÁT HIỆN: ${post.authorName}`, 'active');
@@ -226,10 +296,14 @@
             // Service worker or extension context reloaded
           }
 
-          console.log(`[FB Job Hunter] Comment thành công trên bài viết của: ${post.authorName}`);
+          console.log(`[FB Job Hunter] ✅ Bình luận thành công bài viết của: ${post.authorName}`);
         } catch (postErr) {
-          console.warn(`[FB Job Hunter] Không thể comment trên bài viết ${post.id}:`, postErr.message);
+          console.warn(`[FB Job Hunter] ❌ Lỗi khi comment trên bài viết ${post.id}:`, postErr.message);
         }
+      }
+
+      if (matchedCount === 0 && posts.length > 0) {
+        console.log(`[FB Job Hunter] (${locHint}) Đã quét ${posts.length} bài nhưng chưa có bài nào chứa từ khóa tìm kiếm (whitelist).`);
       }
 
       // Smart Autonomous Scrolling:
@@ -247,8 +321,7 @@
         }
       }
 
-      const locHint = getPageLocationHint();
-      updateWidgetStatus(config.enabled ? `${locHint}: ĐANG LẮNG NGHE` : 'TẠM DỪNG', config.enabled ? 'active' : 'idle');
+      updateWidgetStatus(config.enabled ? `${locHint}: ĐANG LẮNG NGHE (${posts.length} bài)` : 'TẠM DỪNG', config.enabled ? 'active' : 'idle');
     } catch (err) {
       console.error('[FB Job Hunter] Lỗi chu kỳ quét:', err);
     } finally {

@@ -33,6 +33,9 @@ export function initFloatingWidget(options = {}) {
       </div>
       <span class="fb-jh-identity" id="fb-jh-identity" title="Tư cách đang bình luận">🏢 Page</span>
       <div class="fb-jh-controls">
+        <button id="fb-jh-scan-now-btn" class="fb-jh-btn" title="Quét bài viết ngay lập tức">
+          ⚡
+        </button>
         <button id="fb-jh-toggle-btn" class="fb-jh-btn" title="Bật/Tắt tự động">
           ${options.enabled ? '⏸️' : '▶️'}
         </button>
@@ -55,12 +58,21 @@ export function initFloatingWidget(options = {}) {
   shadowRoot.appendChild(widgetContainer);
 
   // Event handlers
+  const scanNowBtn = shadowRoot.getElementById('fb-jh-scan-now-btn');
   const toggleBtn = shadowRoot.getElementById('fb-jh-toggle-btn');
   const expandBtn = shadowRoot.getElementById('fb-jh-expand-btn');
   const drawer = shadowRoot.getElementById('fb-jh-drawer');
   const closeDrawer = shadowRoot.getElementById('fb-jh-close-drawer');
 
   let isEnabled = Boolean(options.enabled);
+
+  if (scanNowBtn) {
+    scanNowBtn.addEventListener('click', () => {
+      if (typeof options.onScanNow === 'function') {
+        options.onScanNow();
+      }
+    });
+  }
 
   toggleBtn.addEventListener('click', () => {
     isEnabled = !isEnabled;
