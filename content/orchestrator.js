@@ -297,8 +297,21 @@ const DEFAULT_SPINTAX = [
           console.log(`[FB Job Hunter] ✅ Comment thành công trên bài viết của: ${post.authorName}`);
         } catch (postErr) {
           console.warn(`[FB Job Hunter] ❌ Không thể comment bài viết ${post.id}:`, postErr.message);
+          try {
+            await closeCommentModal(document);
+          } catch (e) {}
+        } finally {
+          // Always ensure any modal is dismissed before proceeding to next post
+          try {
+            await closeCommentModal(document);
+          } catch (e) {}
         }
       }
+
+      // Ensure no leftover modal blocks feed scrolling
+      try {
+        await closeCommentModal(document);
+      } catch (e) {}
 
       // Auto-scrolling
       if (config.autoScroll && !isManual) {

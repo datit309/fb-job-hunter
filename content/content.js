@@ -1081,6 +1081,114 @@ async function postCommentOnFacebook(postElement, commentText) {
 
   console.log('[FB Job Hunter] Đang gửi bình luận...');
   await submitComment(input, article);
+
+  // 4. Automatically close modal/dialog if opened, preventing the tool from being stuck!
+  try {
+    const docRef = typeof document !== 'undefined' ? document : null;
+    if (docRef) {
+      await closeCommentModal(docRef);
+    }
+  } catch (closeErr) {
+    console.warn('[FB Job Hunter] Lỗi khi đóng modal:', closeErr);
+  }
+
+  return true;
+}
+
+function createKeyboardEvent(type, key, code, keyCode) {
+  if (typeof KeyboardEvent !== 'undefined') {
+    return new KeyboardEvent(type, {
+      key,
+      code,
+      keyCode,
+      which: keyCode,
+      bubbles: true,
+      cancelable: true,
+      composed: true
+    });
+  }
+  return {
+    type,
+    key,
+    code,
+    keyCode,
+    which: keyCode,
+    bubbles: true,
+    cancelable: true
+  };
+}
+
+/**
+ * Automatically closes any open comment modal, photo overlay, or dialog on Facebook
+ * so the tool doesn't get stuck and can smoothly continue scrolling the main feed.
+ */
+async function closeCommentModal(doc = document) {
+  await sleep(1200); // Allow Facebook comment submit animation to complete
+
+  // 1. Unfocus any active element
+  if (doc?.activeElement && typeof doc.activeElement.blur === 'function') {
+    doc.activeElement.blur();
+  }
+
+  // 2. Search for any open Facebook dialogs
+  const dialogs = doc?.querySelectorAll ? doc.querySelectorAll('div[role="dialog"]') : [];
+  for (const dialog of dialogs) {
+    // Never close our own floating widget
+    if (typeof dialog.closest === 'function' && dialog.closest('#fb-job-hunter-host')) {
+      continue;
+    }
+
+    const closeSelectors = [
+      '[aria-label*="Đóng" i][role="button"]',
+      '[aria-label*="Close" i][role="button"]',
+      '[aria-label="Đóng"]',
+      '[aria-label="Close"]',
+      'div[role="button"][tabindex="0"][aria-label*="Đóng" i]',
+      'div[role="button"][tabindex="0"][aria-label*="Close" i]',
+      'div[aria-label*="Đóng" i]',
+      'button[aria-label*="Đóng" i]',
+      'button[aria-label*="Close" i]',
+      'div[role="button"][data-visualcompletion="ignore-dynamic"]'
+    ];
+
+    let closed = false;
+    for (const sel of closeSelectors) {
+      const closeBtn = dialog.querySelector ? dialog.querySelector(sel) : null;
+      if (closeBtn) {
+        closeBtn.click();
+        console.log('[FB Job Hunter] ✕ Đã click nút đóng modal bình luận Facebook');
+        closed = true;
+        await sleep(800);
+        break;
+      }
+    }
+
+    // Fallback: Dispatch Escape key directly to dialog and document
+    if (!closed && typeof dialog.dispatchEvent === 'function') {
+      const escDown = createKeyboardEvent('keydown', 'Escape', 'Escape', 27);
+      dialog.dispatchEvent(escDown);
+      if (typeof doc?.dispatchEvent === 'function') {
+        doc.dispatchEvent(escDown);
+      }
+
+      const escUp = createKeyboardEvent('keyup', 'Escape', 'Escape', 27);
+      dialog.dispatchEvent(escUp);
+      if (typeof doc?.dispatchEvent === 'function') {
+        doc.dispatchEvent(escUp);
+      }
+      console.log('[FB Job Hunter] ⎋ Đã gửi phím Escape để đóng modal Facebook');
+      await sleep(600);
+    }
+  }
+
+  // 3. Fallback: If global backdrop/lightbox exists, send Escape to document
+  try {
+    if (typeof doc?.dispatchEvent === 'function') {
+      const globalEsc = createKeyboardEvent('keydown', 'Escape', 'Escape', 27);
+      doc.dispatchEvent(globalEsc);
+    }
+  } catch (e) {}
+
   return true;
 }
 
@@ -1753,8 +1861,21 @@ const DEFAULT_SPINTAX = [
           console.log(`[FB Job Hunter] ✅ Comment thành công trên bài viết của: ${post.authorName}`);
         } catch (postErr) {
           console.warn(`[FB Job Hunter] ❌ Không thể comment bài viết ${post.id}:`, postErr.message);
+          try {
+            await closeCommentModal(document);
+          } catch (e) {}
+        } finally {
+          // Always ensure any modal is dismissed before proceeding to next post
+          try {
+            await closeCommentModal(document);
+          } catch (e) {}
         }
       }
+
+      // Ensure no leftover modal blocks feed scrolling
+      try {
+        await closeCommentModal(document);
+      } catch (e) {}
 
       // Auto-scrolling
       if (config.autoScroll && !isManual) {
