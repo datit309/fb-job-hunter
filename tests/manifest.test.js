@@ -49,4 +49,37 @@ describe('Extension Manifest & Config Validation', () => {
       }
     }
   });
+
+  it('should ensure popup.js has valid syntax and popup.html has matching tab bindings', () => {
+    const popupHtmlPath = join(process.cwd(), 'popup', 'popup.html');
+    const popupJsPath = join(process.cwd(), 'popup', 'popup.js');
+
+    assert.ok(existsSync(popupHtmlPath), 'popup.html must exist');
+    assert.ok(existsSync(popupJsPath), 'popup.js must exist');
+
+    const html = readFileSync(popupHtmlPath, 'utf8');
+
+    // Extract all data-tab values
+    const tabMatches = [...html.matchAll(/data-tab="([^"]+)"/g)].map((m) => m[1]);
+    assert.ok(tabMatches.length > 0, 'popup.html must have data-tab buttons');
+
+    for (const tabId of tabMatches) {
+      assert.ok(
+        html.includes(`id="${tabId}"`) && html.includes('class="tab-pane'),
+        `Each data-tab="${tabId}" must have a matching <section id="${tabId}" class="tab-pane">`
+      );
+    }
+
+    // Extract all data-subpane values
+    const subpaneMatches = [...html.matchAll(/data-subpane="([^"]+)"/g)].map((m) => m[1]);
+    for (const subpaneId of subpaneMatches) {
+      assert.ok(
+        html.includes(`id="${subpaneId}"`),
+        `Each data-subpane="${subpaneId}" must have a matching element id="${subpaneId}"`
+      );
+    }
+
+    // Verify popup.html loads popup.js
+    assert.ok(html.includes('src="popup.js"'), 'popup.html must load popup.js');
+  });
 });

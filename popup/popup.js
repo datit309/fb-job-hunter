@@ -273,21 +273,21 @@ async function initPopup() {
 
     window.addEventListener('mouseup', () => {
       isDown = false;
-      setTimeout(() => { hasDragged = false; }, 50);
+      // Reset drag lock shortly after click cycle
+      setTimeout(() => { hasDragged = false; }, 100);
     });
 
     navTabs.addEventListener('mousemove', (e) => {
       if (!isDown) return;
       const x = e.pageX - navTabs.offsetLeft;
-      const walk = (x - startX) * 1.2;
-      if (Math.abs(walk) > 4) {
+      const walk = x - startX;
+      if (Math.abs(walk) > 10) {
         hasDragged = true;
-        e.preventDefault();
         navTabs.scrollLeft = scrollStart - walk;
       }
     });
 
-    // Prevent accidental tab switch if user was dragging
+    // Prevent accidental tab switch ONLY if user intentionally dragged the tab bar (> 10px)
     tabButtons.forEach((btn) => {
       btn.addEventListener('click', (e) => {
         if (hasDragged) {
@@ -762,7 +762,6 @@ async function initPopup() {
       document.body.removeChild(link);
       URL.revokeObjectURL(url);
     });
-  }
   }
 
   // Clear Campaign
