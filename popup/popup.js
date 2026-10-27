@@ -369,7 +369,7 @@ async function initPopup() {
     }
 
     if (postTargetType) {
-      postTargetType.value = cfg.plannerConfig?.targetType || 'planner';
+      postTargetType.value = cfg.plannerConfig?.targetType || 'bulk_composer';
       if (customPostUrlContainer) {
         customPostUrlContainer.style.display = postTargetType.value === 'custom' ? 'block' : 'none';
       }
@@ -731,7 +731,7 @@ async function initPopup() {
         alert('Chưa có bài đăng nào trong chiến dịch để xuất CSV! Hãy bấm "✨ AI Tạo chiến dịch bài đăng" trước.');
         return;
       }
-      const csvContent = exportMetaBulkCsv(currentCampaignPosts);
+      const csvContent = exportMetaBulkCsv(currentCampaignPosts, { format: 'us' });
       const blob = new Blob(['\uFEFF' + csvContent], { type: 'text/csv;charset=utf-8;' });
       const url = URL.createObjectURL(blob);
       const link = document.createElement('a');
@@ -876,7 +876,7 @@ async function initPopup() {
           defaultTopic: fanpageTopicSelect?.value || 'general'
         },
         plannerConfig: {
-          targetType: postTargetType?.value || 'planner',
+          targetType: postTargetType?.value || 'bulk_composer',
           customUrl: (customPostUrl?.value || '').trim()
         }
       };

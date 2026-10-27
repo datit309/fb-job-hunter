@@ -119,10 +119,48 @@ test('exportMetaBulkCsv generates Meta bulk_post_composer upload format with sin
     }
   ];
 
-  const csv = exportMetaBulkCsv(mockPosts);
+  const csv = exportMetaBulkCsv(mockPosts, { format: 'iso' });
   assert.ok(csv.startsWith('Date and time,Text\n'));
   assert.ok(csv.includes('"2026-10-24 08:30"'));
   assert.ok(csv.includes('"2026-10-25 11:45"'));
   assert.ok(csv.includes('TIÊU ĐỀ BÀI ĐĂNG'));
 });
+
+test('exportMetaBulkCsv generates Meta US format MM/DD/YYYY HH:mm by default or format=us', () => {
+  const mockPosts = [
+    {
+      id: 'p1',
+      scheduledDate: '2026-10-24',
+      scheduledTime: '08:30',
+      title: 'Thiết kế Web',
+      content: 'Nội dung bài viết',
+      status: 'pending'
+    }
+  ];
+
+  const csv = exportMetaBulkCsv(mockPosts, { format: 'us' });
+  assert.ok(csv.startsWith('Date and time,Text\n'));
+  assert.ok(csv.includes('"10/24/2026 08:30"'));
+});
+
+test('generateCampaignSchedule skips past time slots when starting in the evening', () => {
+  // 8:00 PM on Oct 27, 2026
+  const eveningDate = new Date(2026, 9, 27, 20, 0, 0);
+  const slots = generateCampaignSchedule({
+    startDate: eveningDate,
+    daysCount: 3,
+    preferredHours: ['08:30', '11:45', '19:30']
+  });
+
+  assert.equal(slots.length, 3);
+  // All prime hours for Oct 27 (08:30, 11:45, 19:30) have passed at 20:00!
+  // So slot 0 MUST be scheduled for tomorrow (Oct 28)
+  assert.equal(slots[0].date, '2026-10-28');
+  assert.equal(slots[0].time, '08:30');
+  assert.equal(slots[1].date, '2026-10-29');
+  assert.equal(slots[1].time, '11:45');
+  assert.equal(slots[2].date, '2026-10-30');
+  assert.equal(slots[2].time, '19:30');
+});
+
 

@@ -217,6 +217,11 @@
         </div>
 
         <div class="bsp-actions">
+          ${isBulkComposer ? `
+            <button class="bsp-btn bsp-btn-primary" id="bsp-inject-csv-btn" style="background:#10b981;color:#fff;border:none;font-weight:600;">
+              ⚡ Tự động nạp CSV vào Meta (1-Click)
+            </button>
+          ` : ''}
           <button class="bsp-btn bsp-btn-secondary" id="bsp-download-bulk-csv-btn" style="background:#0284c7;color:#fff;border:none;">
             📥 Tải CSV Meta Bulk Upload ⭐
           </button>
@@ -266,19 +271,28 @@
       };
     }
 
+    function buildCsvContent() {
+      const headers = ['Date and time', 'Text'];
+      const rows = [headers.join(',')];
+      for (const post of campaignPosts) {
+        let dt = `${post.scheduledDate} ${post.scheduledTime}`;
+        const parts = (post.scheduledDate || '').split('-');
+        if (parts.length === 3) {
+          dt = `${parts[1]}/${parts[2]}/${parts[0]} ${post.scheduledTime || '08:30'}`;
+        }
+        const text = post.content || '';
+        rows.push(`"${dt}","${text.replace(/"/g, '""')}"`);
+      }
+      return '\uFEFF' + rows.join('\n');
+    }
+
     function downloadMetaBulkCsv() {
       if (!campaignPosts || campaignPosts.length === 0) {
         showToast('⚠️ Chưa có bài đăng nào trong chiến dịch!');
         return;
       }
-      const headers = ['Date and time', 'Text'];
-      const rows = [headers.join(',')];
-      for (const post of campaignPosts) {
-        const dt = `${post.scheduledDate} ${post.scheduledTime}`;
-        const text = post.content || '';
-        rows.push(`"${dt}","${text.replace(/"/g, '""')}"`);
-      }
-      const blob = new Blob(['\uFEFF' + rows.join('\n')], { type: 'text/csv;charset=utf-8;' });
+      const csvStr = buildCsvContent();
+      const blob = new Blob([csvStr], { type: 'text/csv;charset=utf-8;' });
       const url = URL.createObjectURL(blob);
       const a = document.createElement('a');
       a.href = url;
@@ -288,6 +302,37 @@
       document.body.removeChild(a);
       URL.revokeObjectURL(url);
       showToast('📥 Đã tải file CSV chuẩn Meta Bulk! Bấm "Tải file CSV lên" trên Meta để lên lịch hàng loạt.');
+    }
+
+    const injectCsvBtn = widgetEl.querySelector('#bsp-inject-csv-btn');
+    if (injectCsvBtn) {
+      injectCsvBtn.onclick = () => {
+        if (!campaignPosts || campaignPosts.length === 0) {
+          showToast('⚠️ Chưa có bài đăng nào trong chiến dịch!');
+          return;
+        }
+        const fileInput = document.querySelector('input[type="file"][accept*="csv"]')
+          || document.querySelector('input[type="file"]');
+        if (fileInput) {
+          try {
+            const csvStr = buildCsvContent();
+            const blob = new Blob([csvStr], { type: 'text/csv;charset=utf-8;' });
+            const file = new File([blob], `meta-bulk-posts-${Date.now()}.csv`, { type: 'text/csv' });
+            const dt = new DataTransfer();
+            dt.items.add(file);
+            fileInput.files = dt.files;
+            fileInput.dispatchEvent(new Event('change', { bubbles: true }));
+            fileInput.dispatchEvent(new Event('input', { bubbles: true }));
+            showToast('🚀 Đã tự động nạp file CSV vào Meta Bulk Composer!');
+            return;
+          } catch (e) {
+            console.warn('[FB Job Hunter] Auto inject CSV failed, falling back to download:', e);
+          }
+        }
+        // If file input not found or failed, trigger download
+        downloadMetaBulkCsv();
+        showToast('📥 Không tìm thấy ô tải tự động. Đã tải file CSV xuống, hãy bấm "Tải file CSV lên" trên Meta!');
+      };
     }
 
     const downloadCsvBtn = widgetEl.querySelector('#bsp-download-bulk-csv-btn');
