@@ -6,6 +6,7 @@ import { generateFanpagePost } from '../lib/ai-post-writer.js';
 import {
   generateBulkCampaignPosts,
   exportCampaignToCsv,
+  exportMetaBulkCsv,
   updateCampaignPostStatus
 } from '../lib/business-suite-planner.js';
 
@@ -104,6 +105,7 @@ async function initPopup() {
   const customPostUrlContainer = document.getElementById('custom-post-url-container');
   const customPostUrl = document.getElementById('custom-post-url');
   const btnOpenMetaPlanner = document.getElementById('btn-open-meta-planner');
+  const btnExportMetaBulkCsv = document.getElementById('btn-export-meta-bulk-csv');
   const btnExportCampaignCsv = document.getElementById('btn-export-campaign-csv');
   const btnClearCampaign = document.getElementById('btn-clear-campaign');
   const campaignPostsList = document.getElementById('campaign-posts-list');
@@ -665,22 +667,42 @@ async function initPopup() {
     });
   }
 
-  // Toggle custom post URL input
+  // Toggle custom post URL input & update open button text
   if (postTargetType) {
-    postTargetType.addEventListener('change', () => {
+    const updateTargetState = () => {
+      const val = postTargetType.value;
       if (customPostUrlContainer) {
-        customPostUrlContainer.style.display = postTargetType.value === 'custom' ? 'block' : 'none';
+        customPostUrlContainer.style.display = val === 'custom' ? 'block' : 'none';
       }
-    });
+      if (btnOpenMetaPlanner) {
+        if (val === 'bulk_composer') {
+          btnOpenMetaPlanner.textContent = '🚀 Mở Meta Bulk Post Composer';
+        } else if (val === 'planner') {
+          btnOpenMetaPlanner.textContent = '🚀 Mở Lịch Meta Planner';
+        } else if (val === 'composer') {
+          btnOpenMetaPlanner.textContent = '🚀 Mở Trình tạo bài Meta Composer';
+        } else if (val === 'page') {
+          btnOpenMetaPlanner.textContent = '🚀 Mở Trang Fanpage';
+        } else {
+          btnOpenMetaPlanner.textContent = '🚀 Mở Link đăng bài';
+        }
+      }
+    };
+    postTargetType.addEventListener('change', updateTargetState);
+    updateTargetState();
   }
 
-  // Open Meta Business Suite Planner / Composer / Fanpage
+  // Open Meta Business Suite Bulk Composer / Planner / Composer / Fanpage
   if (btnOpenMetaPlanner) {
     btnOpenMetaPlanner.addEventListener('click', () => {
-      const targetType = postTargetType ? postTargetType.value : 'planner';
-      let url = 'https://business.facebook.com/latest/posts/planner';
+      const targetType = postTargetType ? postTargetType.value : 'bulk_composer';
+      let url = 'https://business.facebook.com/latest/bulk_post_composer';
 
-      if (targetType === 'composer') {
+      if (targetType === 'bulk_composer') {
+        url = 'https://business.facebook.com/latest/bulk_post_composer';
+      } else if (targetType === 'planner') {
+        url = 'https://business.facebook.com/latest/posts/planner';
+      } else if (targetType === 'composer') {
         url = 'https://business.facebook.com/latest/composer';
       } else if (targetType === 'page') {
         const pageId = (fanpageIdInput?.value || '').trim();
@@ -702,7 +724,27 @@ async function initPopup() {
     });
   }
 
-  // Export Campaign to CSV
+  // Export Campaign to Meta Bulk Upload CSV (for bulk_post_composer)
+  if (btnExportMetaBulkCsv) {
+    btnExportMetaBulkCsv.addEventListener('click', () => {
+      if (currentCampaignPosts.length === 0) {
+        alert('Chưa có bài đăng nào trong chiến dịch để xuất CSV! Hãy bấm "✨ AI Tạo chiến dịch bài đăng" trước.');
+        return;
+      }
+      const csvContent = exportMetaBulkCsv(currentCampaignPosts);
+      const blob = new Blob(['\uFEFF' + csvContent], { type: 'text/csv;charset=utf-8;' });
+      const url = URL.createObjectURL(blob);
+      const link = document.createElement('a');
+      link.setAttribute('href', url);
+      link.setAttribute('download', `meta-bulk-composer-${Date.now()}.csv`);
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+      URL.revokeObjectURL(url);
+    });
+  }
+
+  // Export Campaign to CSV (detailed format)
   if (btnExportCampaignCsv) {
     btnExportCampaignCsv.addEventListener('click', () => {
       if (currentCampaignPosts.length === 0) {
@@ -720,6 +762,7 @@ async function initPopup() {
       document.body.removeChild(link);
       URL.revokeObjectURL(url);
     });
+  }
   }
 
   // Clear Campaign

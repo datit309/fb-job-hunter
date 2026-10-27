@@ -4,6 +4,7 @@ import {
   generateCampaignSchedule,
   generateBulkCampaignPosts,
   exportCampaignToCsv,
+  exportMetaBulkCsv,
   updateCampaignPostStatus,
   PRIME_HOURS
 } from '../lib/business-suite-planner.js';
@@ -97,3 +98,31 @@ test('updateCampaignPostStatus updates post status correctly', () => {
   assert.equal(updated.find(p => p.id === 'p1').status, 'scheduled');
   assert.equal(updated.find(p => p.id === 'p2').status, 'pending');
 });
+
+test('exportMetaBulkCsv generates Meta bulk_post_composer upload format with single timestamp column', () => {
+  const mockPosts = [
+    {
+      id: 'p1',
+      scheduledDate: '2026-10-24',
+      scheduledTime: '08:30',
+      title: 'Thiết kế Web "Chuẩn SEO"',
+      content: '🚀 TIÊU ĐỀ BÀI ĐĂNG\nNội dung bài viết chi tiết...',
+      status: 'pending'
+    },
+    {
+      id: 'p2',
+      scheduledDate: '2026-10-25',
+      scheduledTime: '11:45',
+      title: 'Tool Automation',
+      content: '⚡ TIÊU ĐỀ TOOL\nNội dung bài số 2',
+      status: 'pending'
+    }
+  ];
+
+  const csv = exportMetaBulkCsv(mockPosts);
+  assert.ok(csv.startsWith('Date and time,Text\n'));
+  assert.ok(csv.includes('"2026-10-24 08:30"'));
+  assert.ok(csv.includes('"2026-10-25 11:45"'));
+  assert.ok(csv.includes('TIÊU ĐỀ BÀI ĐĂNG'));
+});
+

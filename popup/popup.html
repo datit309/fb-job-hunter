@@ -256,7 +256,8 @@
             <div class="form-group" style="margin-bottom: 10px;">
               <label>Đích đến mở đăng bài:</label>
               <select id="post-target-type" class="form-select">
-                <option value="planner" selected>📅 Lịch Meta Planner (business.facebook.com/latest/posts/planner)</option>
+                <option value="bulk_composer" selected>⚡ Meta Bulk Post Composer (business.facebook.com/latest/bulk_post_composer) [Khuyên dùng ⭐]</option>
+                <option value="planner">📅 Lịch Meta Planner (business.facebook.com/latest/posts/planner)</option>
                 <option value="composer">✍️ Trình tạo bài viết Meta Composer (business.facebook.com/latest/composer)</option>
                 <option value="page">📄 Trang Fanpage trực tiếp trên Facebook (facebook.com/page-id)</option>
                 <option value="custom">🔗 Tự nhập Link đăng bài (Group / Page / Profile riêng)</option>
@@ -271,16 +272,19 @@
 
             <div style="display: flex; gap: 8px; margin-bottom: 12px; flex-wrap: wrap;">
               <button type="button" id="btn-open-meta-planner" class="btn btn-success btn-block" style="font-weight: 600;">
-                🚀 Mở trang đăng bài đã chọn
+                🚀 Mở Meta Bulk Post Composer
               </button>
             </div>
 
-            <div style="display: flex; gap: 8px; margin-bottom: 12px;">
-              <button type="button" id="btn-export-campaign-csv" class="btn btn-secondary btn-sm" style="flex: 1;">
-                📥 Tải file CSV
+            <div style="display: flex; gap: 8px; margin-bottom: 12px; flex-wrap: wrap;">
+              <button type="button" id="btn-export-meta-bulk-csv" class="btn btn-primary btn-sm" style="flex: 1.2;" title="Xuất CSV chuẩn 2 cột (Date and time, Text) để tải trực tiếp lên Meta Bulk Post Composer">
+                📥 Tải CSV Meta Bulk ⭐
               </button>
-              <button type="button" id="btn-clear-campaign" class="btn btn-danger-outline btn-sm" style="flex: 1;">
-                🗑️ Xóa chiến dịch
+              <button type="button" id="btn-export-campaign-csv" class="btn btn-secondary btn-sm" style="flex: 1;" title="Xuất CSV chi tiết (Ngày, Giờ, Tiêu đề, Nội dung, Trạng thái)">
+                📥 Tải CSV Đầy đủ
+              </button>
+              <button type="button" id="btn-clear-campaign" class="btn btn-danger-outline btn-sm" style="flex: 0.8;">
+                🗑️ Xóa
               </button>
             </div>
 
@@ -291,12 +295,13 @@
 
           <div class="card">
             <div class="card-header">
-              <h3>💡 3 Bước lên lịch không cần Token</h3>
+              <h3>💡 3 Bước lên lịch hàng loạt cực nhanh</h3>
             </div>
             <div class="guide-steps">
-              <p>1. Bấm nút <strong>"AI Tạo chiến dịch bài đăng"</strong> để sinh các bài viết chuẩn SEO.</p>
-              <p>2. Bấm nút <strong>"Mở Meta Business Suite Planner"</strong> để vào trang tạo bài của Meta.</p>
-              <p>3. Thanh trợ lý ở góc dưới trang sẽ tự động xuất hiện. Bạn chỉ cần bấm <strong>"🚀 Điền vào Composer & Copy"</strong> rồi chọn giờ đăng là xong!</p>
+              <p>1. Bấm nút <strong>"✨ AI Tạo chiến dịch bài đăng"</strong> để sinh các bài viết chuẩn SEO.</p>
+              <p>2. Bấm nút <strong>"📥 Tải CSV Meta Bulk ⭐"</strong> để tải file CSV định dạng chuẩn của Meta.</p>
+              <p>3. Bấm <strong>"🚀 Mở Meta Bulk Post Composer"</strong> và chỉ việc bấm <em>"Tải file CSV lên"</em> trong Meta Business Suite là toàn bộ bài viết sẽ được lên lịch tự động!</p>
+              <p><em>(Hoặc bạn cũng có thể mở Planner/Composer và dùng thanh trợ lý nổi của extension để điền từng bài).</em></p>
             </div>
           </div>
         </div>

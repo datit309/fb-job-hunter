@@ -185,6 +185,8 @@
         ? '<span class="bsp-post-status bsp-status-scheduled">Đã lên lịch</span>'
         : '<span class="bsp-post-status bsp-status-pending">Chờ lên lịch</span>';
 
+    const isBulkComposer = window.location.href.includes('bulk_post_composer');
+
     widgetEl.innerHTML = `
       <div class="bsp-header">
         <div class="bsp-title">
@@ -194,6 +196,12 @@
         <button class="bsp-toggle-btn" title="Thu gọn">−</button>
       </div>
       <div class="bsp-body">
+        ${isBulkComposer ? `
+          <div style="background: rgba(16, 185, 129, 0.15); border: 1px solid rgba(16, 185, 129, 0.3); border-radius: 6px; padding: 6px 10px; margin-bottom: 8px; font-size: 11px; color: #a7f3d0;">
+            ⚡ <strong>Bulk Post Composer:</strong> Tải file CSV lên để Meta tự lên lịch tất cả bài cùng lúc!
+          </div>
+        ` : ''}
+
         <div class="bsp-meta-info">
           <span>Bài số: <strong>${currentIndex + 1} / ${totalCount}</strong></span>
           <span>${currentPost.scheduledDate} Lúc <strong>${currentPost.scheduledTime}</strong></span>
@@ -209,6 +217,9 @@
         </div>
 
         <div class="bsp-actions">
+          <button class="bsp-btn bsp-btn-secondary" id="bsp-download-bulk-csv-btn" style="background:#0284c7;color:#fff;border:none;">
+            📥 Tải CSV Meta Bulk Upload ⭐
+          </button>
           <button class="bsp-btn bsp-btn-primary" id="bsp-autofill-btn">
             🚀 Điền nội dung vào Composer & Copy
           </button>
@@ -255,13 +266,44 @@
       };
     }
 
+    function downloadMetaBulkCsv() {
+      if (!campaignPosts || campaignPosts.length === 0) {
+        showToast('⚠️ Chưa có bài đăng nào trong chiến dịch!');
+        return;
+      }
+      const headers = ['Date and time', 'Text'];
+      const rows = [headers.join(',')];
+      for (const post of campaignPosts) {
+        const dt = `${post.scheduledDate} ${post.scheduledTime}`;
+        const text = post.content || '';
+        rows.push(`"${dt}","${text.replace(/"/g, '""')}"`);
+      }
+      const blob = new Blob(['\uFEFF' + rows.join('\n')], { type: 'text/csv;charset=utf-8;' });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = `meta-bulk-composer-${Date.now()}.csv`;
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
+      URL.revokeObjectURL(url);
+      showToast('📥 Đã tải file CSV chuẩn Meta Bulk! Bấm "Tải file CSV lên" trên Meta để lên lịch hàng loạt.');
+    }
+
+    const downloadCsvBtn = widgetEl.querySelector('#bsp-download-bulk-csv-btn');
+    if (downloadCsvBtn) {
+      downloadCsvBtn.onclick = () => {
+        downloadMetaBulkCsv();
+      };
+    }
+
     const autofillBtn = widgetEl.querySelector('#bsp-autofill-btn');
     if (autofillBtn) {
       autofillBtn.onclick = async () => {
         const currentPost = campaignPosts[currentIndex];
         if (!currentPost) return;
 
-        const filled = await fillComposer(currentPost.content);
+        const filled = await fillComposer(currentPost);
         if (filled) {
           showToast('✅ Đã tự động điền vào ô soạn thảo & copy nội dung!');
         } else {

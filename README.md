@@ -82,15 +82,18 @@ Nếu muốn câu trả lời được AI viết riêng cho từng bài:
 ### 4. Đăng Bài Lên Fanpage (Tab "Đăng Page")
 Tính năng giúp bạn phủ sóng thương hiệu dịch vụ phần mềm và thu hút khách hàng tiềm năng với 2 chế độ linh hoạt:
 
-#### 🔹 Chế độ 1: 📅 Meta Business Suite Planner (Lên lịch hàng loạt — 100% Không cần Token ⭐)
+#### 🔹 Chế độ 1: ⚡ Meta Bulk Post Composer & Planner (Lên lịch hàng loạt — 100% Không cần Token ⭐)
 - **Không cần tạo App hay lấy Access Token**: Dùng trực tiếp phiên đăng nhập Facebook chính thức của bạn trên `business.facebook.com`.
-- **Tự động lên lịch 7 ngày**: Bấm **"✨ AI Tạo chiến dịch bài đăng"**, AI sẽ tự động soạn 7 bài viết với 7 chủ đề khác nhau (Web, Tool Automation, Mobile App, Outsource...) và tự động chia vào các khung giờ vàng có lượt tương tác cao nhất (`08:30`, `11:45`, `19:30`).
-- **Trợ lý thông minh trong trang Meta**:
-  - Bấm **"🌐 Mở Meta Business Suite Planner"**, trang tạo bài của Facebook sẽ mở ra.
-  - Một thanh tiện ích nổi của extension sẽ xuất hiện ở góc phải màn hình.
+- **Tự động lên lịch 7 ngày bằng AI**: Bấm **"✨ AI Tạo chiến dịch bài đăng"**, AI sẽ tự động soạn 7 bài viết với 7 chủ đề công nghệ khác nhau (Web, Tool Automation, Mobile App, Outsource...) và tự động chia vào các khung giờ vàng có lượt tương tác cao nhất (`08:30`, `11:45`, `19:30`).
+- **⚡ Cách 1 — Lên lịch hàng loạt qua Bulk Post Composer (Nhanh nhất)**:
+  - Bấm **"📥 Tải CSV Meta Bulk ⭐"**: Extension sẽ xuất file CSV chuẩn 2 cột (`Date and time, Text`) được thiết kế riêng cho Meta Business Suite.
+  - Bấm **"🚀 Mở Meta Bulk Post Composer"** (`https://business.facebook.com/latest/bulk_post_composer`).
+  - Trong giao diện Facebook, bấm nút **"Tải file CSV lên"** (Upload CSV) và chọn file vừa tải. Meta sẽ tự động nhập toàn bộ 7 bài viết vào đúng ngày giờ lên lịch!
+- **✍️ Cách 2 — Trợ lý nổi trong trang Planner / Composer**:
+  - Bấm mở **Meta Planner** hoặc **Composer**, thanh trợ lý nổi của extension sẽ xuất hiện ở góc phải.
   - Bấm **"🚀 Điền vào Composer & Copy"**, nội dung bài viết và hashtag sẽ tự động được gõ vào ô đăng bài.
-  - Bạn chỉ cần chọn lịch hẹn giờ và bấm lưu, sau đó bấm **"✅ Đã lên lịch xong"** để chuyển sang bài tiếp theo!
-- **Hỗ trợ xuất CSV**: Có nút **"📥 Tải file CSV"** để lưu trữ kế hoạch nội dung.
+  - Sau khi lưu, bấm **"✅ Đã lên lịch xong"** để chuyển sang bài tiếp theo!
+- **Hỗ trợ xuất CSV chi tiết**: Nút **"📥 Tải CSV Đầy đủ"** để lưu trữ kế hoạch nội dung với đầy đủ Tiêu đề, Ngày, Giờ, Trạng thái.
 
 #### 🔹 Chế độ 2: 🔑 Meta Graph API (Đăng bài tức thì qua Token)
 - **Page ID**: Nhập ID Trang Fanpage của bạn.
