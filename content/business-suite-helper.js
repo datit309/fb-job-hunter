@@ -23,61 +23,111 @@
     });
   }
 
+  function findTitleInput() {
+    const titleSelectors = [
+      'input[placeholder*="tiêu đề" i]',
+      'input[placeholder*="title" i]',
+      'input[aria-label*="tiêu đề" i]',
+      'input[aria-label*="title" i]',
+      'textarea[placeholder*="tiêu đề" i]',
+      'textarea[aria-label*="tiêu đề" i]'
+    ];
+    for (const sel of titleSelectors) {
+      const el = document.querySelector(sel);
+      if (el && el.offsetParent !== null) return el;
+    }
+    return null;
+  }
+
   function findComposerEditor() {
     // Selectors commonly used in Meta Business Suite Composer
     const selectors = [
-      'div[role="textbox"][contenteditable="true"]',
       'div[data-lexical-editor="true"]',
+      'div[role="textbox"][aria-label*="Văn bản" i]',
+      'div[role="textbox"][aria-label*="Text" i]',
+      'div[role="textbox"][aria-placeholder*="nghĩ gì" i]',
+      'div[role="textbox"][aria-placeholder*="mind" i]',
+      'div[role="textbox"][aria-placeholder*="viết" i]',
+      'div[role="textbox"][aria-placeholder*="write" i]',
       'div[data-editor="true"]',
+      'div[role="textbox"][contenteditable="true"]',
       'div[contenteditable="true"]',
-      'textarea[placeholder*="viết"]',
-      'textarea[placeholder*="post"]',
+      'textarea[placeholder*="viết" i]',
+      'textarea[placeholder*="post" i]',
       'textarea'
     ];
 
     for (const sel of selectors) {
       const el = document.querySelector(sel);
       if (el && el.offsetParent !== null) {
+        // Skip title inputs, search boxes, and hashtag boxes
+        const placeholder = (el.getAttribute('placeholder') || el.getAttribute('aria-label') || '').toLowerCase();
+        if (
+          placeholder.includes('tìm kiếm') ||
+          placeholder.includes('search') ||
+          placeholder.includes('hashtag') ||
+          placeholder.includes('thẻ') ||
+          placeholder.includes('tiêu đề') ||
+          placeholder.includes('title')
+        ) {
+          continue;
+        }
         return el;
       }
     }
     return null;
   }
 
-  async function fillComposer(text) {
+  function fillElement(el, text) {
+    if (!el || !text) return false;
+    try {
+      el.focus();
+      if (document.queryCommandSupported && document.queryCommandSupported('insertText')) {
+        document.execCommand('selectAll', false, null);
+        document.execCommand('insertText', false, text);
+        return true;
+      } else if (el.tagName.toLowerCase() === 'textarea' || el.tagName.toLowerCase() === 'input') {
+        el.value = text;
+        el.dispatchEvent(new Event('input', { bubbles: true }));
+        el.dispatchEvent(new Event('change', { bubbles: true }));
+        return true;
+      } else {
+        el.innerText = text;
+        el.dispatchEvent(new InputEvent('input', { bubbles: true, data: text }));
+        return true;
+      }
+    } catch (e) {
+      console.warn('[FB Job Hunter] fillElement error:', e);
+      return false;
+    }
+  }
+
+  async function fillComposer(postData) {
+    const content = typeof postData === 'string' ? postData : postData?.content || '';
+    const title = typeof postData === 'object' ? postData?.title : '';
+
+    // If there is a title input and a clean title, fill title input
+    if (title) {
+      const titleInput = findTitleInput();
+      if (titleInput) {
+        fillElement(titleInput, title);
+      }
+    }
+
     const editor = findComposerEditor();
     let filled = false;
 
     if (editor) {
-      try {
-        editor.focus();
-        // Try document.execCommand first for rich text editors (Lexical / DraftJS)
-        if (document.queryCommandSupported && document.queryCommandSupported('insertText')) {
-          document.execCommand('selectAll', false, null);
-          document.execCommand('insertText', false, text);
-          filled = true;
-        } else if (editor.tagName.toLowerCase() === 'textarea') {
-          editor.value = text;
-          editor.dispatchEvent(new Event('input', { bubbles: true }));
-          editor.dispatchEvent(new Event('change', { bubbles: true }));
-          filled = true;
-        } else {
-          editor.innerText = text;
-          editor.dispatchEvent(new InputEvent('input', { bubbles: true, data: text }));
-          filled = true;
-        }
-      } catch (e) {
-        console.warn('[FB Job Hunter] Auto-fill error:', e);
-      }
+      filled = fillElement(editor, content);
     }
 
     // Always copy to clipboard as 100% reliable backup
     try {
-      await navigator.clipboard.writeText(text);
+      await navigator.clipboard.writeText(content);
     } catch (e) {
       // Clipboard fallback
       const tmp = document.createElement('textarea');
-      tmp.value = text;
+      tmp.value = content;
       document.body.appendChild(tmp);
       tmp.select();
       document.execCommand('copy');
