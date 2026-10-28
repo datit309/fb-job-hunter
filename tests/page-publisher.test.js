@@ -128,4 +128,141 @@ describe('Meta Graph API Page Publisher', () => {
       assert.ok(result.error.includes('Session has expired'));
     });
   });
+
+  describe('publishOrSchedulePost', () => {
+    it('should schedule photo post to /{pageId}/photos when imageUrl and scheduledPublishTime provided', async () => {
+      const { publishOrSchedulePost } = await import('../lib/page-publisher.js');
+      assert.ok(publishOrSchedulePost, 'publishOrSchedulePost must be exported');
+
+      const futureTimestamp = Math.floor(Date.now() / 1000) + 3600; // +1 hour
+
+      let requestedUrl = '';
+      let requestBody = '';
+
+      const mockFetch = async (url, options) => {
+        requestedUrl = url;
+        requestBody = options.body;
+        return {
+          ok: true,
+          status: 200,
+          json: async () => ({ id: 'photo_123456', post_id: '12345_67890' })
+        };
+      };
+
+      const result = await publishOrSchedulePost(
+        {
+          pageId: 'page_999',
+          accessToken: 'token_abc',
+          message: 'Bài viết có hình ảnh đẹp!',
+          imageUrl: 'https://images.unsplash.com/photo-test',
+          scheduledPublishTime: futureTimestamp
+        },
+        mockFetch
+      );
+
+      assert.equal(result.success, true);
+      assert.ok(requestedUrl.includes('/page_999/photos'), 'Must call /{pageId}/photos');
+      const params = new URLSearchParams(requestBody);
+      assert.equal(params.get('url'), 'https://images.unsplash.com/photo-test');
+      assert.equal(params.get('caption'), 'Bài viết có hình ảnh đẹp!');
+      assert.equal(params.get('published'), 'false');
+      assert.equal(params.get('scheduled_publish_time'), String(futureTimestamp));
+    });
+
+    it('should schedule text post to /{pageId}/feed when no imageUrl provided', async () => {
+      const { publishOrSchedulePost } = await import('../lib/page-publisher.js');
+      const futureTimestamp = Math.floor(Date.now() / 1000) + 7200;
+
+      let requestedUrl = '';
+      let requestBody = '';
+
+      const mockFetch = async (url, options) => {
+        requestedUrl = url;
+        requestBody = options.body;
+        return {
+          ok: true,
+          status: 200,
+          json: async () => ({ id: 'page_999_post_111' })
+        };
+      };
+
+      const result = await publishOrSchedulePost(
+        {
+          pageId: 'page_999',
+          accessToken: 'token_abc',
+          message: 'Bài viết text thuần',
+          scheduledPublishTime: futureTimestamp
+        },
+        mockFetch
+      );
+
+      assert.equal(result.success, true);
+      assert.ok(requestedUrl.includes('/page_999/feed'), 'Must call /{pageId}/feed');
+      const params = new URLSearchParams(requestBody);
+      assert.equal(params.get('message'), 'Bài viết text thuần');
+      assert.equal(params.get('published'), 'false');
+      assert.equal(params.get('scheduled_publish_time'), String(futureTimestamp));
+    });
+  });
+
+  describe('scheduleAllCampaignPosts', () => {
+    it('should iterate through all posts and schedule them with progress tracking', async () => {
+      const { scheduleAllCampaignPosts } = await import('../lib/page-publisher.js');
+      assert.ok(scheduleAllCampaignPosts, 'scheduleAllCampaignPosts must be exported');
+
+      const posts = [
+        {
+          id: 'p1',
+          title: 'Post 1',
+          content: 'Nội dung bài 1',
+          imageUrl: 'https://images.unsplash.com/photo-1',
+          scheduledDate: '2026-10-30',
+          scheduledTime: '08:30',
+          status: 'pending'
+        },
+        {
+          id: 'p2',
+          title: 'Post 2',
+          content: 'Nội dung bài 2',
+          imageUrl: 'https://images.unsplash.com/photo-2',
+          scheduledDate: '2026-10-31',
+          scheduledTime: '11:45',
+          status: 'pending'
+        }
+      ];
+
+      const calls = [];
+      const mockFetch = async (url, options) => {
+        calls.push({ url, body: options.body });
+        return {
+          ok: true,
+          status: 200,
+          json: async () => ({ id: `id_${calls.length}` })
+        };
+      };
+
+      const progressLogs = [];
+      const onProgress = (info) => {
+        progressLogs.push(info);
+      };
+
+      const res = await scheduleAllCampaignPosts(
+        {
+          pageId: 'page_test',
+          accessToken: 'token_test',
+          posts,
+          onProgress
+        },
+        mockFetch
+      );
+
+      assert.equal(res.scheduledCount, 2);
+      assert.equal(res.total, 2);
+      assert.equal(calls.length, 2);
+      assert.equal(progressLogs.length, 2);
+      assert.equal(res.updatedPosts[0].status, 'scheduled');
+      assert.equal(res.updatedPosts[1].status, 'scheduled');
+    });
+  });
 });
+

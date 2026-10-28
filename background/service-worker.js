@@ -130,4 +130,22 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
     sendResponse({ success: true });
     return true;
   }
+
+  if (message.type === 'FETCH_IMAGE_BASE64') {
+    (async () => {
+      try {
+        const res = await fetch(message.url);
+        if (!res.ok) throw new Error(`HTTP ${res.status}`);
+        const arrayBuffer = await res.arrayBuffer();
+        const base64 = btoa(
+          new Uint8Array(arrayBuffer).reduce((data, byte) => data + String.fromCharCode(byte), '')
+        );
+        const mimeType = res.headers.get('content-type') || 'image/jpeg';
+        sendResponse({ success: true, base64, mimeType });
+      } catch (e) {
+        sendResponse({ success: false, error: e.message });
+      }
+    })();
+    return true;
+  }
 });

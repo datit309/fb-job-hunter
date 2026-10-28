@@ -163,4 +163,21 @@ test('generateCampaignSchedule skips past time slots when starting in the evenin
   assert.equal(slots[2].time, '19:30');
 });
 
+test('generateBulkCampaignPosts includes valid imageUrl for each topic', async () => {
+  const { TOPIC_IMAGES } = await import('../lib/business-suite-planner.js');
+  assert.ok(TOPIC_IMAGES, 'TOPIC_IMAGES must be exported');
+  assert.ok(Array.isArray(TOPIC_IMAGES.general) && TOPIC_IMAGES.general.length > 0);
+  assert.ok(Array.isArray(TOPIC_IMAGES.web) && TOPIC_IMAGES.web.length > 0);
+  assert.ok(Array.isArray(TOPIC_IMAGES.automation) && TOPIC_IMAGES.automation.length > 0);
+  assert.ok(Array.isArray(TOPIC_IMAGES.mobile) && TOPIC_IMAGES.mobile.length > 0);
+
+  const posts = await generateBulkCampaignPosts({ count: 4 });
+  assert.equal(posts.length, 4);
+  for (const post of posts) {
+    assert.ok(post.imageUrl, `Post ${post.id} must have imageUrl`);
+    assert.ok(post.imageUrl.startsWith('https://'), `imageUrl must start with https://`);
+  }
+});
+
+
 

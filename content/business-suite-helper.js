@@ -137,6 +137,143 @@
     return filled;
   }
 
+  async function fetchImageFile(imageUrl) {
+    if (!imageUrl) return null;
+    try {
+      // 1. Try direct fetch
+      const resp = await fetch(imageUrl);
+      if (resp.ok) {
+        const blob = await resp.blob();
+        return new File([blob], 'marketing-post.jpg', { type: blob.type || 'image/jpeg' });
+      }
+    } catch (e) {
+      console.warn('[FB Job Hunter] Direct fetch image failed, falling back to background worker:', e);
+    }
+
+    // 2. Fallback via background service worker
+    try {
+      const response = await new Promise((resolve) => {
+        chrome.runtime.sendMessage({ type: 'FETCH_IMAGE_BASE64', url: imageUrl }, (res) => {
+          resolve(res);
+        });
+      });
+      if (response && response.success && response.base64) {
+        const binaryStr = atob(response.base64);
+        const bytes = new Uint8Array(binaryStr.length);
+        for (let i = 0; i < binaryStr.length; i++) {
+          bytes[i] = binaryStr.charCodeAt(i);
+        }
+        const blob = new Blob([bytes], { type: response.mimeType || 'image/jpeg' });
+        return new File([blob], 'marketing-post.jpg', { type: response.mimeType || 'image/jpeg' });
+      }
+    } catch (err) {
+      console.warn('[FB Job Hunter] Background fetch image failed:', err);
+    }
+    return null;
+  }
+
+  async function injectPostImage(imageUrl) {
+    if (!imageUrl) return false;
+    const file = await fetchImageFile(imageUrl);
+    if (!file) return false;
+
+    let fileInput = document.querySelector('input[type="file"][accept*="image"]')
+      || document.querySelector('input[type="file"]');
+
+    if (!fileInput) {
+      const buttons = Array.from(document.querySelectorAll('button, div[role="button"], span'));
+      const addPhotoBtn = buttons.find((b) => {
+        const t = (b.textContent || '').toLowerCase();
+        return (
+          t.includes('thêm ảnh') ||
+          t.includes('add photo') ||
+          t.includes('ảnh/video') ||
+          t.includes('photo/video') ||
+          t.includes('thêm phương tiện')
+        );
+      });
+      if (addPhotoBtn) {
+        addPhotoBtn.click();
+        await new Promise((r) => setTimeout(r, 400));
+        fileInput = document.querySelector('input[type="file"][accept*="image"]')
+          || document.querySelector('input[type="file"]');
+      }
+    }
+
+    if (fileInput) {
+      try {
+        const dt = new DataTransfer();
+        dt.items.add(file);
+        fileInput.files = dt.files;
+        fileInput.dispatchEvent(new Event('input', { bubbles: true }));
+        fileInput.dispatchEvent(new Event('change', { bubbles: true }));
+        return true;
+      } catch (err) {
+        console.warn('[FB Job Hunter] File injection failed:', err);
+      }
+    }
+    return false;
+  }
+
+  async function selectScheduleOption(dateStr, timeStr) {
+    try {
+      const clickables = Array.from(document.querySelectorAll('input[type="radio"], div[role="radio"], div[role="switch"], div[role="checkbox"], label, button, span'));
+      const scheduleToggle = clickables.find((el) => {
+        const text = (el.innerText || el.textContent || el.getAttribute('aria-label') || el.value || '').toLowerCase();
+        return (
+          text.includes('lên lịch') ||
+          text.includes('schedule') ||
+          text.includes('lên lịch đăng')
+        );
+      });
+
+      if (scheduleToggle) {
+        scheduleToggle.click();
+        await new Promise((r) => setTimeout(r, 500));
+      }
+
+      if (dateStr) {
+        const dateInputs = Array.from(document.querySelectorAll('input[type="date"], input[placeholder*="YYYY" i], input[placeholder*="DD" i], input[placeholder*="MM" i], input[aria-label*="ngày" i], input[aria-label*="date" i]'));
+        for (const inp of dateInputs) {
+          fillElement(inp, dateStr);
+        }
+      }
+
+      if (timeStr) {
+        const timeInputs = Array.from(document.querySelectorAll('input[type="time"], input[placeholder*="HH" i], input[aria-label*="giờ" i], input[aria-label*="time" i]'));
+        for (const inp of timeInputs) {
+          fillElement(inp, timeStr);
+        }
+      }
+      return true;
+    } catch (e) {
+      console.warn('[FB Job Hunter] selectScheduleOption error:', e);
+      return false;
+    }
+  }
+
+  async function fillComposerComplete(postData) {
+    if (!postData) return;
+    showToast('⏳ Đang tự động nạp Nội dung, Ảnh & Lịch...');
+
+    await fillComposer(postData);
+
+    let imgInjected = false;
+    if (postData.imageUrl) {
+      imgInjected = await injectPostImage(postData.imageUrl);
+    }
+
+    let scheduleSet = false;
+    if (postData.scheduledDate && postData.scheduledTime) {
+      scheduleSet = await selectScheduleOption(postData.scheduledDate, postData.scheduledTime);
+    }
+
+    let statusMsg = '✅ Đã điền nội dung & copy vào clipboard!';
+    if (imgInjected) statusMsg += ' 🖼️ Đã nạp ảnh!';
+    if (scheduleSet) statusMsg += ` ⏰ Đã chọn lịch (${postData.scheduledDate} ${postData.scheduledTime})!`;
+    showToast(statusMsg);
+  }
+
   function showToast(msg) {
     if (!widgetEl) return;
     const toast = widgetEl.querySelector('.bsp-toast');
@@ -212,11 +349,20 @@
             <span class="bsp-post-time">⏰ ${currentPost.scheduledTime} (${currentPost.scheduledDate})</span>
             ${statusBadge}
           </div>
+          ${currentPost.imageUrl ? `
+            <div style="margin: 6px 0; position: relative; border-radius: 6px; overflow: hidden; max-height: 120px; border: 1px solid rgba(255,255,255,0.1);">
+              <img src="${escapeHtml(currentPost.imageUrl)}" alt="Preview" style="width: 100%; height: 110px; object-fit: cover; display: block;">
+              <a href="${escapeHtml(currentPost.imageUrl)}" target="_blank" rel="noopener noreferrer" style="position: absolute; bottom: 4px; right: 4px; background: rgba(0,0,0,0.7); color: #fff; font-size: 10px; padding: 2px 6px; border-radius: 4px; text-decoration: none;">🖼️ Mở ảnh</a>
+            </div>
+          ` : ''}
           <div class="bsp-post-title">${currentPost.title || 'Bài viết quảng bá'}</div>
           <div class="bsp-post-preview">${escapeHtml(currentPost.content)}</div>
         </div>
 
         <div class="bsp-actions">
+          <button class="bsp-btn bsp-btn-primary" id="bsp-autofill-complete-btn" style="background: linear-gradient(135deg, #10b981, #059669); color: #fff; font-weight: 700; border: none; box-shadow: 0 2px 8px rgba(16, 185, 129, 0.4);">
+            ⚡ Tự động nạp: Nội dung + Ảnh + Lịch
+          </button>
           ${isBulkComposer ? `
             <button class="bsp-btn bsp-btn-primary" id="bsp-inject-csv-btn" style="background:#10b981;color:#fff;border:none;font-weight:600;">
               ⚡ Tự động nạp CSV vào Meta (1-Click)
@@ -225,8 +371,8 @@
           <button class="bsp-btn bsp-btn-secondary" id="bsp-download-bulk-csv-btn" style="background:#0284c7;color:#fff;border:none;">
             📥 Tải CSV Meta Bulk Upload ⭐
           </button>
-          <button class="bsp-btn bsp-btn-primary" id="bsp-autofill-btn">
-            🚀 Điền nội dung vào Composer & Copy
+          <button class="bsp-btn bsp-btn-secondary" id="bsp-autofill-btn" style="font-size: 11px;">
+            📝 Chỉ điền nội dung & Copy
           </button>
           <button class="bsp-btn bsp-btn-success" id="bsp-mark-done-btn">
             ✅ Đã lên lịch xong (Chuyển bài kế)
@@ -339,6 +485,15 @@
     if (downloadCsvBtn) {
       downloadCsvBtn.onclick = () => {
         downloadMetaBulkCsv();
+      };
+    }
+
+    const autofillCompleteBtn = widgetEl.querySelector('#bsp-autofill-complete-btn');
+    if (autofillCompleteBtn) {
+      autofillCompleteBtn.onclick = async () => {
+        const currentPost = campaignPosts[currentIndex];
+        if (!currentPost) return;
+        await fillComposerComplete(currentPost);
       };
     }
 

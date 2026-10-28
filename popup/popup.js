@@ -1,7 +1,7 @@
 import { parseSpintax } from '../lib/spintax.js';
 import { formatKeywordsInput, validateConfig } from '../lib/config-helper.js';
 import { sendTelegramMessage, formatTestMessage } from '../lib/telegram.js';
-import { publishToPage, verifyPageToken } from '../lib/page-publisher.js';
+import { publishToPage, verifyPageToken, publishOrSchedulePost, scheduleAllCampaignPosts } from '../lib/page-publisher.js';
 import { generateFanpagePost } from '../lib/ai-post-writer.js';
 import {
   generateBulkCampaignPosts,
@@ -154,8 +154,22 @@ async function initPopup() {
             <span class="campaign-post-slot">#${idx + 1} — 📅 ${post.scheduledDate} ⏰ ${post.scheduledTime}</span>
             <span class="campaign-badge ${badgeClass}">${badgeText}</span>
           </div>
-          <div class="campaign-post-title">${escapeHtml(post.title || 'Bài quảng bá')}</div>
-          <div class="campaign-post-snippet">${escapeHtml(post.content || '')}</div>
+          <div class="campaign-post-body-row">
+            ${post.imageUrl ? `
+              <div class="campaign-thumb-wrapper">
+                <img class="campaign-post-thumb" src="${escapeHtml(post.imageUrl)}" alt="Topic Image" onerror="this.src='../icons/icon48.png'">
+                <button type="button" class="btn-change-image" data-id="${post.id}" title="Đổi URL hình ảnh">🖼️ Đổi ảnh</button>
+              </div>
+            ` : `
+              <div class="campaign-thumb-wrapper" style="display:flex;align-items:center;justify-content:center;background:#27272a;">
+                <button type="button" class="btn-change-image" data-id="${post.id}" style="position:static;padding:4px 6px;">+ Thêm ảnh</button>
+              </div>
+            `}
+            <div class="campaign-post-text-col">
+              <div class="campaign-post-title">${escapeHtml(post.title || 'Bài quảng bá')}</div>
+              <div class="campaign-post-snippet">${escapeHtml(post.content || '')}</div>
+            </div>
+          </div>
           <div class="campaign-post-actions">
             <button type="button" class="btn btn-secondary btn-copy-post" data-id="${post.id}">📋 Copy</button>
             <button type="button" class="btn ${isDone ? 'btn-secondary' : 'btn-success'} btn-toggle-status" data-id="${post.id}">
@@ -168,6 +182,24 @@ async function initPopup() {
     }).join('');
 
     // Attach row events
+    campaignPostsList.querySelectorAll('.btn-change-image').forEach((btn) => {
+      btn.addEventListener('click', async (e) => {
+        e.stopPropagation();
+        const id = btn.getAttribute('data-id');
+        const p = currentCampaignPosts.find((item) => item.id === id);
+        if (!p) return;
+        const currentUrl = p.imageUrl || '';
+        const newUrl = window.prompt('Nhập URL hình ảnh cho bài viết này (Unsplash / Imgur / Facebook / CDN):', currentUrl);
+        if (newUrl !== null && newUrl.trim() !== '') {
+          p.imageUrl = newUrl.trim();
+          if (typeof chrome !== 'undefined' && chrome.storage?.local) {
+            await chrome.storage.local.set({ campaign_posts: currentCampaignPosts });
+          }
+          renderCampaignList(currentCampaignPosts);
+        }
+      });
+    });
+
     campaignPostsList.querySelectorAll('.btn-copy-post').forEach((btn) => {
       btn.addEventListener('click', () => {
         const id = btn.getAttribute('data-id');
@@ -720,6 +752,86 @@ async function initPopup() {
         chrome.tabs.create({ url });
       } else {
         window.open(url, '_blank');
+      }
+    });
+  }
+
+  // 1-Click Batch Schedule all Campaign Posts via Meta Graph API
+  const btnScheduleAllApi = document.getElementById('btn-schedule-all-api');
+  const apiScheduleProgress = document.getElementById('api-schedule-progress');
+
+  if (btnScheduleAllApi) {
+    btnScheduleAllApi.addEventListener('click', async () => {
+      if (!currentCampaignPosts || currentCampaignPosts.length === 0) {
+        alert('⚠️ Chưa có bài đăng nào trong chiến dịch. Hãy bấm "✨ AI Tạo chiến dịch bài đăng" trước!');
+        return;
+      }
+
+      const conf = await getStoredConfig();
+      const pageId = (conf.metaGraphPageId || document.getElementById('meta-page-id')?.value || '').trim();
+      const accessToken = (conf.metaGraphAccessToken || document.getElementById('meta-page-token')?.value || '').trim();
+
+      if (!pageId || !accessToken) {
+        const confirmSwitch = window.confirm(
+          '⚠️ Bạn chưa cấu hình Page ID hoặc Page Access Token!\n\nBạn có muốn chuyển sang mục "🔑 Meta Graph API (Có Token)" để cấu hình không?'
+        );
+        if (confirmSwitch) {
+          const apiRadio = document.querySelector('input[name="meta-mode-choice"][value="api"]');
+          if (apiRadio) {
+            apiRadio.checked = true;
+            apiRadio.dispatchEvent(new Event('change'));
+          }
+        }
+        return;
+      }
+
+      const confirmed = window.confirm(
+        `🚀 Xác nhận lên lịch tự động cho ${currentCampaignPosts.length} bài viết lên Fanpage qua Meta Graph API?\n\n• Tất cả bài viết sẽ được tự động gửi kèm hình ảnh theo chủ đề.\n• Mỗi bài sẽ được lên lịch tự động vào các khung giờ vàng tối ưu đã chọn.`
+      );
+      if (!confirmed) return;
+
+      btnScheduleAllApi.disabled = true;
+      btnScheduleAllApi.textContent = '⏳ Đang tự động lên lịch...';
+      if (apiScheduleProgress) {
+        apiScheduleProgress.style.display = 'block';
+        apiScheduleProgress.textContent = `[0/${currentCampaignPosts.length}] Đang bắt đầu gửi các bài viết lên Meta Graph API...`;
+      }
+
+      try {
+        const res = await scheduleAllCampaignPosts({
+          pageId,
+          accessToken,
+          posts: currentCampaignPosts,
+          onProgress: ({ index, total, post, success, error }) => {
+            if (apiScheduleProgress) {
+              if (success) {
+                apiScheduleProgress.innerHTML = `⏳ [${index}/${total}] Đang xử lý: <strong>${escapeHtml(post.title)}</strong><br>📅 Đã lên lịch thành công: ${post.scheduledDate} Lúc ${post.scheduledTime} ✅`;
+              } else {
+                apiScheduleProgress.innerHTML = `⚠️ [${index}/${total}] Lỗi bài "${escapeHtml(post.title)}": ${escapeHtml(error || 'Thất bại')}`;
+              }
+            }
+          }
+        });
+
+        currentCampaignPosts = res.updatedPosts;
+        if (typeof chrome !== 'undefined' && chrome.storage?.local) {
+          await chrome.storage.local.set({ campaign_posts: currentCampaignPosts });
+        }
+        renderCampaignList(currentCampaignPosts);
+
+        if (apiScheduleProgress) {
+          apiScheduleProgress.innerHTML = `🎉 <strong>Hoàn tất!</strong> Đã lên lịch thành công ${res.scheduledCount}/${res.total} bài viết lên Fanpage!`;
+        }
+        alert(`🎉 Đã lên lịch thành công ${res.scheduledCount}/${res.total} bài viết lên Fanpage qua Meta Graph API!`);
+      } catch (err) {
+        console.error('[Popup] Batch schedule error:', err);
+        if (apiScheduleProgress) {
+          apiScheduleProgress.textContent = `❌ Lỗi khi lên lịch: ${err.message}`;
+        }
+        alert(`❌ Lỗi khi lên lịch: ${err.message}`);
+      } finally {
+        btnScheduleAllApi.disabled = false;
+        btnScheduleAllApi.textContent = '🚀 Lên lịch toàn bộ 7 bài qua Graph API (Tự động kèm ảnh & giờ)';
       }
     });
   }
